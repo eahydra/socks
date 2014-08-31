@@ -187,7 +187,7 @@ func getCommand(reader io.Reader) (cmd byte, destHost string, destPort uint16, d
 }
 
 func main() {
-	globalCfg, err := LoadConfig(".config")
+	globalCfg, err := LoadConfig()
 	if err != nil {
 		ErrLog.Println("LoadConfig failed, err:", err)
 		return
