@@ -22,17 +22,22 @@ func NewCipherStream(rwc io.ReadWriteCloser, cryptMethod string, password []byte
 
 	case "rc4":
 		{
-			rc4Cipher, err := rc4.NewCipher(password)
+			rc4CipherRead, err := rc4.NewCipher(password)
 			if err != nil {
 				return nil, err
 			}
+			rc4CipherWrite, err := rc4.NewCipher(password)
+			if err != nil {
+				return nil, err
+			}
+
 			stream = &CipherStream{
 				reader: &cipher.StreamReader{
-					S: rc4Cipher,
+					S: rc4CipherRead,
 					R: rwc,
 				},
 				writeCloser: &cipher.StreamWriter{
-					S: rc4Cipher,
+					S: rc4CipherWrite,
 					W: rwc,
 				},
 			}

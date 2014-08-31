@@ -15,8 +15,8 @@ type Config struct {
 	RemoteSocksPort uint32 `json:"remoteSocksPort"`
 }
 
-func LoadConfig() (*Config, error) {
-	data, err := ioutil.ReadFile("./.config")
+func LoadConfig(s string) (*Config, error) {
+	data, err := ioutil.ReadFile(s)
 	if err != nil {
 		return nil, err
 	}
