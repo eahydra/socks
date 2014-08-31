@@ -2,8 +2,13 @@ package main
 
 import (
 	"crypto/cipher"
+	"crypto/des"
 	"crypto/rc4"
 	"io"
+)
+
+var (
+	desIV = [...]byte{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07}
 )
 
 type CipherStream struct {
@@ -41,6 +46,25 @@ func NewCipherStream(rwc io.ReadWriteCloser, cryptMethod string, password []byte
 					W: rwc,
 				},
 			}
+		}
+	case "des":
+		{
+			block, err := des.NewCipher(password)
+			if err != nil {
+				return nil, err
+			}
+			desRead := cipher.NewCFBDecrypter(block, desIV[:])
+			desWrite := cipher.NewCFBEncrypter(block, desIV[:])
+			return &CipherStream{
+				reader: &cipher.StreamReader{
+					S: desRead,
+					R: rwc,
+				},
+				writeCloser: &cipher.StreamWriter{
+					S: desWrite,
+					W: rwc,
+				},
+			}, nil
 		}
 	}
 	return stream, nil
