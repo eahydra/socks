@@ -11,30 +11,6 @@ import (
 	"strings"
 )
 
-type HTTPTunnel struct {
-	remoteCryptoMethod string
-	remotePassword     []byte
-	remoteServer       string
-}
-
-func NewHTTPTunnel(remoteServer string, remoteCryptoMethod string, remotePassword []byte) *HTTPTunnel {
-	return &HTTPTunnel{
-		remoteCryptoMethod: remoteCryptoMethod,
-		remotePassword:     remotePassword,
-		remoteServer:       remoteServer,
-	}
-}
-
-func (h *HTTPTunnel) Run(addr string) error {
-	listener, err := net.Listen("tcp4", addr)
-	if err != nil {
-		return err
-	}
-	defer listener.Close()
-
-	return http.Serve(listener, h)
-}
-
 func ServeHTTPTunnel(response http.ResponseWriter, request *http.Request,
 	remoteServer, remoteCryptoMethod string, remotePassword []byte) {
 	if request.Method != "CONNECT" {
@@ -119,9 +95,4 @@ func ServeHTTPTunnel(response http.ResponseWriter, request *http.Request,
 
 	go io.Copy(dest, conn)
 	io.Copy(conn, dest)
-
-}
-
-func (h *HTTPTunnel) ServeHTTP(response http.ResponseWriter, request *http.Request) {
-	ServeHTTPTunnel(response, request, h.remoteServer, h.remoteCryptoMethod, h.remotePassword)
 }
