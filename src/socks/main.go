@@ -12,9 +12,6 @@ func main() {
 	remoteCryptoMethod := conf.RemoteCryptoMethod
 	remotePassword := []byte(conf.RemotePassword)
 
-	httpTunnel := NewHTTPTunnel(remoteServer, remoteCryptoMethod, remotePassword)
-	go httpTunnel.Run(conf.HTTPTunnelAddr)
-
 	httpProxy := NewHTTPProxy(remoteServer, remoteCryptoMethod, remotePassword)
 	go httpProxy.Run(conf.HTTPProxyAddr)
 

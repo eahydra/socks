@@ -35,7 +35,8 @@ func (h *HTTPTunnel) Run(addr string) error {
 	return http.Serve(listener, h)
 }
 
-func (h *HTTPTunnel) ServeHTTP(response http.ResponseWriter, request *http.Request) {
+func ServeHTTPTunnel(response http.ResponseWriter, request *http.Request,
+	remoteServer, remoteCryptoMethod string, remotePassword []byte) {
 	if request.Method != "CONNECT" {
 		http.Error(response, http.ErrNotSupported.Error(), http.StatusMethodNotAllowed)
 		return
@@ -70,8 +71,8 @@ func (h *HTTPTunnel) ServeHTTP(response http.ResponseWriter, request *http.Reque
 	defer conn.Close()
 
 	var dest io.ReadWriteCloser
-	if h.remoteServer != "" {
-		remoteSvr, err := NewRemoteSocks(h.remoteServer, h.remoteCryptoMethod, h.remotePassword)
+	if remoteServer != "" {
+		remoteSvr, err := NewRemoteSocks(remoteServer, remoteCryptoMethod, remotePassword)
 		if err != nil {
 			ErrLog.Println("HTTPTunnel NewRemoteSocks failed, err:", err)
 			fmt.Fprintf(conn, "HTTP/1.0 500 NewRemoteSocks failed, err:%s\r\n\r\n", err)
@@ -118,4 +119,9 @@ func (h *HTTPTunnel) ServeHTTP(response http.ResponseWriter, request *http.Reque
 
 	go io.Copy(dest, conn)
 	io.Copy(conn, dest)
+
+}
+
+func (h *HTTPTunnel) ServeHTTP(response http.ResponseWriter, request *http.Request) {
+	ServeHTTPTunnel(response, request, h.remoteServer, h.remoteCryptoMethod, h.remotePassword)
 }

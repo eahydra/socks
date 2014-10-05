@@ -35,6 +35,9 @@ func (h *HTTPProxyConn) SetWriteDeadline(t time.Time) error {
 
 type HTTPProxy struct {
 	*httputil.ReverseProxy
+	remoteServer       string
+	remoteCryptoMethod string
+	remotePassword     []byte
 }
 
 func NewHTTPProxy(remoteSocks, cryptoMethod string, password []byte) *HTTPProxy {
@@ -47,6 +50,9 @@ func NewHTTPProxy(remoteSocks, cryptoMethod string, password []byte) *HTTPProxy 
 				},
 			},
 		},
+		remoteServer:       remoteSocks,
+		remoteCryptoMethod: cryptoMethod,
+		remotePassword:     password,
 	}
 }
 
@@ -97,4 +103,12 @@ func (h *HTTPProxy) Run(addr string) error {
 	defer listen.Close()
 
 	return http.Serve(listen, h)
+}
+
+func (h *HTTPProxy) ServeHTTP(response http.ResponseWriter, request *http.Request) {
+	if request.Method == "CONNECT" {
+		ServeHTTPTunnel(response, request, h.remoteServer, h.remoteCryptoMethod, h.remotePassword)
+	} else {
+		h.ReverseProxy.ServeHTTP(response, request)
+	}
 }

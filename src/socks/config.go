@@ -13,7 +13,6 @@ type RemoteConfig struct {
 
 type Config struct {
 	HTTPProxyAddr       string `json:"httpProxyAddr"`
-	HTTPTunnelAddr      string `json:"httpTunnelAddr"`
 	SOCKS4Addr          string `json:"socks4Addr"`
 	SOCKS5Addr          string `json:"socks5Addr"`
 	LocalCryptoMethod   string `json:"localCryptoMethod"`
