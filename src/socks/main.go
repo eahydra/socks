@@ -1,7 +1,7 @@
 package main
 
 func main() {
-	conf, err := LoadConfig(".config")
+	conf, err := LoadConfig("socks.config")
 	if err != nil {
 		ErrLog.Println("initGlobalConfig failed, err:", err)
 		return
