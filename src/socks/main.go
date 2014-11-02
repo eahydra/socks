@@ -1,5 +1,10 @@
 package main
 
+import (
+	"net/http"
+	_ "net/http/pprof"
+)
+
 func main() {
 	conf, err := LoadConfig("socks.config")
 	if err != nil {
@@ -11,6 +16,8 @@ func main() {
 	remoteServer := conf.RemoteServer
 	remoteCryptoMethod := conf.RemoteCryptoMethod
 	remotePassword := []byte(conf.RemotePassword)
+
+	go http.ListenAndServe(conf.PprofAddr, nil)
 
 	httpProxy := NewHTTPProxy(remoteServer, remoteCryptoMethod, remotePassword)
 	go httpProxy.Run(conf.HTTPProxyAddr)

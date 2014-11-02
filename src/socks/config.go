@@ -12,6 +12,7 @@ type RemoteConfig struct {
 }
 
 type Config struct {
+	PprofAddr           string `json:"pprof"`
 	HTTPProxyAddr       string `json:"httpProxyAddr"`
 	SOCKS4Addr          string `json:"socks4Addr"`
 	SOCKS5Addr          string `json:"socks5Addr"`
