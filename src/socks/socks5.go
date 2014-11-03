@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"time"
 )
 
 var (
@@ -51,7 +52,13 @@ func (s *SOCKS5Server) Run(addr string) error {
 				return err
 			}
 		}
+		tcpConn := conn.(*net.TCPConn)
+		tcpConn.SetNoDelay(true)
+		tcpConn.SetKeepAlive(true)
+		tcpConn.SetKeepAlivePeriod(time.Duration(1) * time.Minute)
+
 		InfoLog.Println("SOCKS5 Incoming new connection, remote:", conn.RemoteAddr().String())
+
 		if clientConn, err := NewSOCKS5ClientConn(conn, s.localCryptoMethod, s.localPassword,
 			s.remoteServer, s.remoteCryptoMethod, s.remotePassowrd); err == nil {
 			go clientConn.Run()
@@ -122,13 +129,13 @@ func (c *SOCKS5ClientConn) Run() {
 			c.Write(reply)
 			return
 		}
-		defer remoteSvr.Close()
 
 		err = remoteSvr.Handshake(req)
 		if err != nil {
 			ErrLog.Println("SOCKS5 Handshake with remote server failed, err:", err)
 			reply[1] = 0x05
 			c.Write(reply)
+			remoteSvr.Close()
 			return
 		}
 		dest = remoteSvr
@@ -139,11 +146,12 @@ func (c *SOCKS5ClientConn) Run() {
 			ErrLog.Println("net.Dial", destHost, destPort, "failed, err:", err)
 			reply[1] = 0x05
 			c.Write(reply)
+			destConn.Close()
 			return
 		}
-		defer destConn.Close()
 		dest = destConn
 	}
+	defer dest.Close()
 
 	reply[1] = 0x00
 	if _, err = c.Write(reply); err != nil {
@@ -151,8 +159,14 @@ func (c *SOCKS5ClientConn) Run() {
 		return
 	}
 
-	go io.Copy(dest, c)
-	io.Copy(c, dest)
+	go func() {
+		defer c.Close()
+		defer dest.Close()
+
+		io.Copy(c, dest)
+	}()
+
+	io.Copy(dest, c)
 }
 
 func (c *SOCKS5ClientConn) handshake() error {

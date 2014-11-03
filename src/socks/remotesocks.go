@@ -2,6 +2,7 @@ package main
 
 import (
 	"net"
+	"time"
 )
 
 type RemoteSocks struct {
@@ -14,6 +15,11 @@ func NewRemoteSocks(remote string, cryptoMethod string, password []byte) (*Remot
 	if err != nil {
 		return nil, err
 	}
+	tcpConn := conn.(*net.TCPConn)
+	tcpConn.SetNoDelay(true)
+	tcpConn.SetKeepAlive(true)
+	tcpConn.SetKeepAlivePeriod(time.Duration(1) * time.Minute)
+
 	stream, err := NewCipherStream(conn, cryptoMethod, password)
 	if err != nil {
 		conn.Close()
