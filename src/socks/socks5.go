@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"time"
 )
 
 var (
@@ -52,11 +51,6 @@ func (s *SOCKS5Server) Run(addr string) error {
 				return err
 			}
 		}
-		tcpConn := conn.(*net.TCPConn)
-		tcpConn.SetNoDelay(true)
-		tcpConn.SetKeepAlive(true)
-		tcpConn.SetKeepAlivePeriod(time.Duration(1) * time.Minute)
-
 		InfoLog.Println("SOCKS5 Incoming new connection, remote:", conn.RemoteAddr().String())
 
 		if clientConn, err := NewSOCKS5ClientConn(conn, s.localCryptoMethod, s.localPassword,
