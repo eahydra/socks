@@ -140,7 +140,6 @@ func (c *SOCKS5ClientConn) Run() {
 			ErrLog.Println("net.Dial", destHost, destPort, "failed, err:", err)
 			reply[1] = 0x05
 			c.Write(reply)
-			destConn.Close()
 			return
 		}
 		dest = destConn
