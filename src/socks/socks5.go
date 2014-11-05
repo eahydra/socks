@@ -15,21 +15,16 @@ var (
 )
 
 type SOCKS5Server struct {
-	localCryptoMethod  string
-	localPassword      []byte
-	remoteServer       string
-	remoteCryptoMethod string
-	remotePassowrd     []byte
+	localCryptoMethod string
+	localPassword     []byte
+	loadBalancer      LoadBalancer
 }
 
-func NewSocks5Server(cryptMethod string, password []byte,
-	remoteServer string, remoteCryptoMethod string, remotePassowrd []byte) *SOCKS5Server {
+func NewSocks5Server(cryptMethod string, password []byte, loadBalancer LoadBalancer) *SOCKS5Server {
 	return &SOCKS5Server{
-		localCryptoMethod:  cryptMethod,
-		localPassword:      password,
-		remoteServer:       remoteServer,
-		remoteCryptoMethod: remoteCryptoMethod,
-		remotePassowrd:     remotePassowrd,
+		localCryptoMethod: cryptMethod,
+		localPassword:     password,
+		loadBalancer:      loadBalancer,
 	}
 }
 
@@ -53,8 +48,7 @@ func (s *SOCKS5Server) Run(addr string) error {
 		}
 		InfoLog.Println("SOCKS5 Incoming new connection, remote:", conn.RemoteAddr().String())
 
-		if clientConn, err := NewSOCKS5ClientConn(conn, s.localCryptoMethod, s.localPassword,
-			s.remoteServer, s.remoteCryptoMethod, s.remotePassowrd); err == nil {
+		if clientConn, err := NewSOCKS5ClientConn(conn, s.localCryptoMethod, s.localPassword, s.loadBalancer); err == nil {
 			go clientConn.Run()
 
 		} else {
@@ -68,18 +62,13 @@ func (s *SOCKS5Server) Run(addr string) error {
 type SOCKS5ClientConn struct {
 	conn net.Conn
 	*CipherStream
-	remoteServer       string
-	remoteCryptoMethod string
-	remotePassword     []byte
+	loadBalancer LoadBalancer
 }
 
-func NewSOCKS5ClientConn(conn net.Conn, localCryptoMethod string, localPassword []byte,
-	remoteServer string, remoteCryptoMethod string, remotePassword []byte) (*SOCKS5ClientConn, error) {
+func NewSOCKS5ClientConn(conn net.Conn, localCryptoMethod string, localPassword []byte, loadBalancer LoadBalancer) (*SOCKS5ClientConn, error) {
 	clientConn := &SOCKS5ClientConn{
-		conn:               conn,
-		remoteServer:       remoteServer,
-		remoteCryptoMethod: remoteCryptoMethod,
-		remotePassword:     remotePassword,
+		conn:         conn,
+		loadBalancer: loadBalancer,
 	}
 	var err error
 	clientConn.CipherStream, err = NewCipherStream(conn, localCryptoMethod, localPassword)
@@ -115,8 +104,9 @@ func (c *SOCKS5ClientConn) Run() {
 	}
 
 	var dest io.ReadWriteCloser
-	if c.remoteServer != "" {
-		remoteSvr, err := NewRemoteSocks(c.remoteServer, c.remoteCryptoMethod, c.remotePassword)
+	remoteServer, cryptoMethod, password := c.loadBalancer()
+	if remoteServer != "" {
+		remoteSvr, err := NewRemoteSocks(remoteServer, cryptoMethod, password)
 		if err != nil {
 			ErrLog.Println("SOCKS5 NewRemoteSocks failed, err:", err)
 			reply[1] = 0x05

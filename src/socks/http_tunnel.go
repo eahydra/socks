@@ -11,8 +11,7 @@ import (
 	"strings"
 )
 
-func ServeHTTPTunnel(response http.ResponseWriter, request *http.Request,
-	remoteServer, remoteCryptoMethod string, remotePassword []byte) {
+func ServeHTTPTunnel(response http.ResponseWriter, request *http.Request, loadBalancer LoadBalancer) {
 	if request.Method != "CONNECT" {
 		http.Error(response, http.ErrNotSupported.Error(), http.StatusMethodNotAllowed)
 		return
@@ -47,8 +46,9 @@ func ServeHTTPTunnel(response http.ResponseWriter, request *http.Request,
 	defer conn.Close()
 
 	var dest io.ReadWriteCloser
+	remoteServer, cryptoMethod, remotePassword := loadBalancer()
 	if remoteServer != "" {
-		remoteSvr, err := NewRemoteSocks(remoteServer, remoteCryptoMethod, remotePassword)
+		remoteSvr, err := NewRemoteSocks(remoteServer, cryptoMethod, remotePassword)
 		if err != nil {
 			ErrLog.Println("HTTPTunnel NewRemoteSocks failed, err:", err)
 			fmt.Fprintf(conn, "HTTP/1.0 500 NewRemoteSocks failed, err:%s\r\n\r\n", err)

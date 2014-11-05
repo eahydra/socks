@@ -35,50 +35,53 @@ func (h *HTTPProxyConn) SetWriteDeadline(t time.Time) error {
 
 type HTTPProxy struct {
 	*httputil.ReverseProxy
-	remoteServer       string
-	remoteCryptoMethod string
-	remotePassword     []byte
+	loadBalancer LoadBalancer
 }
 
-func NewHTTPProxy(remoteSocks, cryptoMethod string, password []byte) *HTTPProxy {
+func NewHTTPProxy(loadBalancer LoadBalancer) *HTTPProxy {
 	return &HTTPProxy{
 		ReverseProxy: &httputil.ReverseProxy{
 			Director: director,
 			Transport: &http.Transport{
 				Dial: func(network, addr string) (net.Conn, error) {
-					return dial(network, addr, remoteSocks, cryptoMethod, password)
+					return dial(network, addr, loadBalancer)
 				},
 			},
 		},
-		remoteServer:       remoteSocks,
-		remoteCryptoMethod: cryptoMethod,
-		remotePassword:     password,
+		loadBalancer: loadBalancer,
 	}
 }
 
-func dial(network, addr, remoteSocks, cryptoMethod string, password []byte) (net.Conn, error) {
-	tcpAddr, err := net.ResolveTCPAddr(network, addr)
-	if err != nil {
-		return nil, err
-	}
-	remoteSvr, err := NewRemoteSocks(remoteSocks, cryptoMethod, password)
-	if err != nil {
-		return nil, err
-	}
+func dial(network, addr string, loadBalancer LoadBalancer) (net.Conn, error) {
 
-	// version(1) + cmd(1) + reserved(1) + addrType(1) + domainLength(1) + maxDomainLength(256) + port(2)
-	req := []byte{0x05, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
-	copy(req[4:8], []byte(tcpAddr.IP.To4()))
-	binary.BigEndian.PutUint16(req[8:10], uint16(tcpAddr.Port))
-	err = remoteSvr.Handshake(req)
-	if err != nil {
-		remoteSvr.Close()
-		return nil, err
+	remoteServerAddr, cryptoMethod, password := loadBalancer()
+	if remoteServerAddr != "" {
+		tcpAddr, err := net.ResolveTCPAddr(network, addr)
+		if err != nil {
+			return nil, err
+		}
+
+		remoteSocks, err := NewRemoteSocks(remoteServerAddr, cryptoMethod, password)
+		if err != nil {
+			return nil, err
+		}
+
+		// version(1) + cmd(1) + reserved(1) + addrType(1) + domainLength(1) + maxDomainLength(256) + port(2)
+		req := []byte{0x05, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
+		copy(req[4:8], []byte(tcpAddr.IP.To4()))
+		binary.BigEndian.PutUint16(req[8:10], uint16(tcpAddr.Port))
+		err = remoteSocks.Handshake(req)
+		if err != nil {
+			remoteSocks.Close()
+			return nil, err
+		}
+		conn := &HTTPProxyConn{
+			RemoteSocks: remoteSocks,
+		}
+		return conn, nil
+	} else {
+		return net.Dial(network, addr)
 	}
-	conn := &HTTPProxyConn{
-		RemoteSocks: remoteSvr,
-	}
-	return conn, nil
 }
 
 func director(request *http.Request) {
@@ -107,7 +110,7 @@ func (h *HTTPProxy) Run(addr string) error {
 
 func (h *HTTPProxy) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 	if request.Method == "CONNECT" {
-		ServeHTTPTunnel(response, request, h.remoteServer, h.remoteCryptoMethod, h.remotePassword)
+		ServeHTTPTunnel(response, request, h.loadBalancer)
 	} else {
 		h.ReverseProxy.ServeHTTP(response, request)
 	}

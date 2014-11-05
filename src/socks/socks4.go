@@ -8,16 +8,12 @@ import (
 )
 
 type SOCKS4Server struct {
-	remoteServer       string
-	remoteCryptoMethod string
-	remotePassword     []byte
+	loadBalancer LoadBalancer
 }
 
-func NewSOCKS4Server(remoteServer string, cryptMethod string, password []byte) *SOCKS4Server {
+func NewSOCKS4Server(loadBalancer LoadBalancer) *SOCKS4Server {
 	return &SOCKS4Server{
-		remoteServer:       remoteServer,
-		remoteCryptoMethod: cryptMethod,
-		remotePassword:     password,
+		loadBalancer: loadBalancer,
 	}
 }
 
@@ -40,7 +36,7 @@ func (s *SOCKS4Server) Run(addr string) error {
 			}
 		}
 		InfoLog.Println("SOCKS4 Incoming new connection, remote:", conn.RemoteAddr().String())
-		clientConn := NewSOCKS4ClientConn(conn, s.remoteServer, s.remoteCryptoMethod, s.remotePassword)
+		clientConn := NewSOCKS4ClientConn(conn, s.loadBalancer)
 		go clientConn.Run()
 	}
 	panic("unreached")
@@ -48,17 +44,13 @@ func (s *SOCKS4Server) Run(addr string) error {
 
 type SOCKS4ClientConn struct {
 	net.Conn
-	remoteServer string
-	cryptoMethod string
-	password     []byte
+	loadBalancer LoadBalancer
 }
 
-func NewSOCKS4ClientConn(conn net.Conn, remoteServer, cryptoMethod string, password []byte) *SOCKS4ClientConn {
+func NewSOCKS4ClientConn(conn net.Conn, loadBalancer LoadBalancer) *SOCKS4ClientConn {
 	clientConn := &SOCKS4ClientConn{
 		Conn:         conn,
-		remoteServer: remoteServer,
-		cryptoMethod: cryptoMethod,
-		password:     password,
+		loadBalancer: loadBalancer,
 	}
 	return clientConn
 }
@@ -85,8 +77,9 @@ func (c *SOCKS4ClientConn) Run() {
 	}
 
 	var dest io.ReadWriteCloser
-	if c.remoteServer != "" {
-		remoteSvr, err := NewRemoteSocks(c.remoteServer, c.cryptoMethod, c.password)
+	remoteServer, cryptoMethod, password := c.loadBalancer()
+	if remoteServer != "" {
+		remoteSvr, err := NewRemoteSocks(remoteServer, cryptoMethod, []byte(password))
 		if err != nil {
 			ErrLog.Println("SOCKS4 NewRemoteSocks failed, err:", err)
 			reply[1] = 0x5c

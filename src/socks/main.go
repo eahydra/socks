@@ -13,19 +13,16 @@ func main() {
 	}
 	InfoLog.Println(conf)
 
-	remoteServer := conf.RemoteServer
-	remoteCryptoMethod := conf.RemoteCryptoMethod
-	remotePassword := []byte(conf.RemotePassword)
+	loadBalancer := NewLoadBalancer(conf.RemoteConfigs)
 
 	go http.ListenAndServe(conf.PprofAddr, nil)
 
-	httpProxy := NewHTTPProxy(remoteServer, remoteCryptoMethod, remotePassword)
+	httpProxy := NewHTTPProxy(loadBalancer)
 	go httpProxy.Run(conf.HTTPProxyAddr)
 
-	socks4Svr := NewSOCKS4Server(remoteServer, remoteCryptoMethod, remotePassword)
+	socks4Svr := NewSOCKS4Server(loadBalancer)
 	go socks4Svr.Run(conf.SOCKS4Addr)
 
-	socks5Svr := NewSocks5Server(conf.LocalCryptoMethod, []byte(conf.LocalCryptoPassword),
-		remoteServer, remoteCryptoMethod, remotePassword)
+	socks5Svr := NewSocks5Server(conf.LocalCryptoMethod, []byte(conf.LocalCryptoPassword), loadBalancer)
 	socks5Svr.Run(conf.SOCKS5Addr)
 }

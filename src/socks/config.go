@@ -12,13 +12,13 @@ type RemoteConfig struct {
 }
 
 type Config struct {
-	PprofAddr           string `json:"pprof"`
-	HTTPProxyAddr       string `json:"httpProxyAddr"`
-	SOCKS4Addr          string `json:"socks4Addr"`
-	SOCKS5Addr          string `json:"socks5Addr"`
-	LocalCryptoMethod   string `json:"localCryptoMethod"`
-	LocalCryptoPassword string `json:"localPassword"`
-	RemoteConfig        `json:"remote"`
+	PprofAddr           string         `json:"pprof"`
+	HTTPProxyAddr       string         `json:"httpProxyAddr"`
+	SOCKS4Addr          string         `json:"socks4Addr"`
+	SOCKS5Addr          string         `json:"socks5Addr"`
+	LocalCryptoMethod   string         `json:"localCryptoMethod"`
+	LocalCryptoPassword string         `json:"localPassword"`
+	RemoteConfigs       []RemoteConfig `json:"remotes"`
 }
 
 func (c *Config) String() string {
