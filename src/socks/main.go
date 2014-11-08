@@ -14,15 +14,17 @@ func main() {
 	InfoLog.Println(conf)
 
 	loadBalancer := NewLoadBalancer(conf.RemoteConfigs)
+	dnsCache := NewDNSCache(conf.DNSCacheTimeout)
+	upstreamConnector := NewUpstreamConnector(loadBalancer, dnsCache)
 
 	go http.ListenAndServe(conf.PprofAddr, nil)
 
-	httpProxy := NewHTTPProxy(loadBalancer)
+	httpProxy := NewHTTPProxy(upstreamConnector.ConnectUpstream)
 	go httpProxy.Run(conf.HTTPProxyAddr)
 
-	socks4Svr := NewSOCKS4Server(loadBalancer)
+	socks4Svr := NewSOCKS4Server(upstreamConnector.ConnectUpstream)
 	go socks4Svr.Run(conf.SOCKS4Addr)
 
-	socks5Svr := NewSocks5Server(conf.LocalCryptoMethod, []byte(conf.LocalCryptoPassword), loadBalancer)
+	socks5Svr := NewSocks5Server(conf.LocalCryptoMethod, conf.LocalCryptoPassword, upstreamConnector.ConnectUpstream)
 	socks5Svr.Run(conf.SOCKS5Addr)
 }

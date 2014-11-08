@@ -18,6 +18,7 @@ type Config struct {
 	SOCKS5Addr          string         `json:"socks5Addr"`
 	LocalCryptoMethod   string         `json:"localCryptoMethod"`
 	LocalCryptoPassword string         `json:"localPassword"`
+	DNSCacheTimeout     int            `json:dnsCacheTimeout`
 	RemoteConfigs       []RemoteConfig `json:"remotes"`
 }
 

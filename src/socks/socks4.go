@@ -8,12 +8,12 @@ import (
 )
 
 type SOCKS4Server struct {
-	loadBalancer LoadBalancer
+	connectUpstream ConnectUpstream
 }
 
-func NewSOCKS4Server(loadBalancer LoadBalancer) *SOCKS4Server {
+func NewSOCKS4Server(connectUpstream ConnectUpstream) *SOCKS4Server {
 	return &SOCKS4Server{
-		loadBalancer: loadBalancer,
+		connectUpstream: connectUpstream,
 	}
 }
 
@@ -28,94 +28,54 @@ func (s *SOCKS4Server) Run(addr string) error {
 		conn, err := listener.Accept()
 		if err != nil {
 			if netErr, ok := err.(net.Error); ok && netErr.Temporary() {
-				WarnLog.Println("SOCKS4 listener.Accept temporary error")
 				continue
 			} else {
-				ErrLog.Println("SOCKS4 listener.Accept failed, err:", err.Error())
 				return err
 			}
 		}
-		InfoLog.Println("SOCKS4 Incoming new connection, remote:", conn.RemoteAddr().String())
-		clientConn := NewSOCKS4ClientConn(conn, s.loadBalancer)
-		go clientConn.Run()
+		clientConn := NewSOCKS4ClientConn(conn)
+		go clientConn.Run(s.connectUpstream)
 	}
 	panic("unreached")
 }
 
 type SOCKS4ClientConn struct {
 	net.Conn
-	loadBalancer LoadBalancer
 }
 
-func NewSOCKS4ClientConn(conn net.Conn, loadBalancer LoadBalancer) *SOCKS4ClientConn {
+func NewSOCKS4ClientConn(conn net.Conn) *SOCKS4ClientConn {
 	clientConn := &SOCKS4ClientConn{
-		Conn:         conn,
-		loadBalancer: loadBalancer,
+		Conn: conn,
 	}
 	return clientConn
 }
 
-func (c *SOCKS4ClientConn) Run() {
+func (c *SOCKS4ClientConn) Run(connectUpstream ConnectUpstream) {
 	defer func() {
-		InfoLog.Println("SOCKS4 Connection closed, remote:", c.RemoteAddr().String())
 		c.Close()
 	}()
 
-	cmd, destPort, destHost, err := c.handshake()
+	cmd, destIP, destPort, err := c.handshake()
 	if err != nil {
-		WarnLog.Println("SOCKS4 handshake failed, err:", err)
 		return
 	}
-	InfoLog.Printf("SOCKS4 cmd:%d, destHost:%s:%d", cmd, destHost, destPort)
 
 	reply := []byte{0x00, 0x5a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
 	if cmd != 0x01 {
-		WarnLog.Println("SOCKS4 unsupported command, cmd:", cmd)
-		reply[1] = 0x5b // reject
+		reply[1] = 0x5b // reject.
 		c.Write(reply)
 		return
 	}
 
-	var dest io.ReadWriteCloser
-	remoteServer, cryptoMethod, password := c.loadBalancer()
-	if remoteServer != "" {
-		remoteSvr, err := NewRemoteSocks(remoteServer, cryptoMethod, []byte(password))
-		if err != nil {
-			ErrLog.Println("SOCKS4 NewRemoteSocks failed, err:", err)
-			reply[1] = 0x5c
-			c.Write(reply)
-			return
-		}
-		defer remoteSvr.Close()
-
-		// version(1) + cmd(1) + reserved(1) + addrType(1) + domainLength(1) + maxDomainLength(256) + port(2)
-		req := []byte{0x05, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
-		copy(req[4:8], []byte(net.ParseIP(destHost).To4()))
-		binary.BigEndian.PutUint16(req[8:10], destPort)
-
-		err = remoteSvr.Handshake(req)
-		if err != nil {
-			ErrLog.Println("SOCKS4 Handshake with remote server failed, err:", err)
-			reply[1] = 0x5c
-			c.Write(reply)
-			return
-		}
-		dest = remoteSvr
-
-	} else {
-		destConn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", destHost, destPort))
-		if err != nil {
-			ErrLog.Println("net.Dial", destHost, destPort, "failed, err:", err)
-			reply[1] = 0x5c
-			c.Write(reply)
-			return
-		}
-		defer destConn.Close()
-		dest = destConn
+	dest, err := connectUpstream(fmt.Sprintf("%s:%d", destIP.String(), destPort))
+	if err != nil {
+		reply[1] = 0x5c // connect failed
+		c.Write(reply)
+		return
 	}
+	defer dest.Close()
 
 	if _, err = c.Write(reply); err != nil {
-		ErrLog.Println("SOCKS4 write succeed reply failed. err:", err)
 		return
 	}
 
@@ -123,7 +83,7 @@ func (c *SOCKS4ClientConn) Run() {
 	_, err = io.Copy(c, dest)
 }
 
-func (c *SOCKS4ClientConn) handshake() (cmd byte, port uint16, ip string, err error) {
+func (c *SOCKS4ClientConn) handshake() (cmd byte, ip net.IP, port uint16, err error) {
 	// version(1) + command(1) + port(2) + ip(4) + null(1)
 	p := [1024]byte{}
 	buff := p[:]
@@ -137,7 +97,7 @@ func (c *SOCKS4ClientConn) handshake() (cmd byte, port uint16, ip string, err er
 	}
 	cmd = buff[1]
 	port = binary.BigEndian.Uint16(buff[2:4])
-	ip = net.IP(buff[4:8]).String()
+	ip = net.IP(buff[4:8])
 
 	if buff[n-1] != 0 {
 		for {
