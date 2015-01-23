@@ -11,10 +11,15 @@ Socks is a proxy server. Support SOCKS4, SOCKS5, HTTP Tunnel and HTTP Proxy.
 
 ### 部署  
 git clone https://github.com/eahydra/socks
+
 export GOPATH=~/socks
+
 cd socks/src/socks
+
 go build
+
 ./socks
+
 
 在运行前，需要写好自己的配置文件，配置文件名为**socks.config**，数据格式为json，内容类似如下：
 ```json
