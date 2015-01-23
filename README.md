@@ -11,15 +11,10 @@ Socks is a proxy server. Support SOCKS4, SOCKS5, HTTP Tunnel and HTTP Proxy.
 
 ### 部署  
 git clone https://github.com/eahydra/socks
-
 export GOPATH=~/socks
-
 cd socks/src/socks
-
 go build
-
 ./socks
-
 
 在运行前，需要写好自己的配置文件，配置文件名为**socks.config**，数据格式为json，内容类似如下：
 ```json
@@ -55,16 +50,16 @@ go build
 }
 
 ```
-pprof               - 用于观察程序的性能数据和栈状态，不需要可以不设置
-configs             - 是一个CONFIG数组。可以配置多个CONFIG，每个CONFIG表示一个本地监听的端口以及对应的UPSTREAM列表
-httpProxyAddr       - 表示本地HTTP RPOXY的监听地址和端口
-socks4Addr          - 表示本地SOCKS4监听地址和端口
-socks5Addr          - 表示本地SOCKS5监听地址和端口
-localCryptoMethod   - 本地SOCKS5的加密算法，如果为空，表示不开启加密，否则就按指定的算法实现加密。可以配置"rc4"或者"des"
-localPasssword      - 加密算法使用到的密钥
-dnsCacheTimeout     - 表示DNS的缓存时间,单位为分钟
-upstream            - 表示对应的上端服务列表
-cryptoMethod        - 表示上端使用到的加密算法
-password            - 表示上端加密算法的密钥
-addr                - 表示对应的服务端地址和端口
+pprof               - 用于观察程序的性能数据和栈状态，不需要可以不设置  
+configs             - 是一个CONFIG数组。可以配置多个CONFIG，每个CONFIG表示一个本地监听的端口以及对应的UPSTREAM列表  
+httpProxyAddr       - 表示本地HTTP RPOXY的监听地址和端口  
+socks4Addr          - 表示本地SOCKS4监听地址和端口  
+socks5Addr          - 表示本地SOCKS5监听地址和端口  
+localCryptoMethod   - 本地SOCKS5的加密算法，如果为空，表示不开启加密，否则就按指定的算法实现加密。可以配置"rc4"或者"des"  
+localPasssword      - 加密算法使用到的密钥  
+dnsCacheTimeout     - 表示DNS的缓存时间,单位为分钟  
+upstream            - 表示对应的上端服务列表  
+cryptoMethod        - 表示上端使用到的加密算法  
+password            - 表示上端加密算法的密钥  
+addr                - 表示对应的服务端地址和端口  
 
