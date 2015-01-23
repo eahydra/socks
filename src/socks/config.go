@@ -5,21 +5,25 @@ import (
 	"io/ioutil"
 )
 
-type RemoteConfig struct {
-	RemoteCryptoMethod string `json:"remoteCryptoMethod"`
-	RemotePassword     string `json:"remotePassword"`
-	RemoteServer       string `json:"remoteServer"`
+type UpstreamConfig struct {
+	CryptoMethod string `json:"cryptoMethod"`
+	Password     string `json:"password"`
+	Addr         string `json:"addr"`
 }
 
 type Config struct {
-	PprofAddr           string         `json:"pprof"`
-	HTTPProxyAddr       string         `json:"httpProxyAddr"`
-	SOCKS4Addr          string         `json:"socks4Addr"`
-	SOCKS5Addr          string         `json:"socks5Addr"`
-	LocalCryptoMethod   string         `json:"localCryptoMethod"`
-	LocalCryptoPassword string         `json:"localPassword"`
-	DNSCacheTimeout     int            `json:dnsCacheTimeout`
-	RemoteConfigs       []RemoteConfig `json:"remotes"`
+	HTTPProxyAddr       string           `json:"httpProxyAddr"`
+	SOCKS4Addr          string           `json:"socks4Addr"`
+	SOCKS5Addr          string           `json:"socks5Addr"`
+	LocalCryptoMethod   string           `json:"localCryptoMethod"`
+	LocalCryptoPassword string           `json:"localPassword"`
+	DNSCacheTimeout     int              `json:dnsCacheTimeout`
+	AllUpstreamConfig   []UpstreamConfig `json:"upstream"`
+}
+
+type ConfigGroup struct {
+	PprofAddr string   `json:"pprof"`
+	AllConfig []Config `json:"configs"`
 }
 
 func (c *Config) String() string {
@@ -27,14 +31,19 @@ func (c *Config) String() string {
 	return string(data)
 }
 
-func LoadConfig(s string) (*Config, error) {
+func (c *ConfigGroup) String() string {
+	data, _ := json.Marshal(c)
+	return string(data)
+}
+
+func LoadConfigGroup(s string) (*ConfigGroup, error) {
 	data, err := ioutil.ReadFile(s)
 	if err != nil {
 		return nil, err
 	}
-	cfg := &Config{}
-	if err = json.Unmarshal(data, cfg); err != nil {
+	cfgGroup := &ConfigGroup{}
+	if err = json.Unmarshal(data, cfgGroup); err != nil {
 		return nil, err
 	}
-	return cfg, nil
+	return cfgGroup, nil
 }

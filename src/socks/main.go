@@ -3,28 +3,35 @@ package main
 import (
 	"net/http"
 	_ "net/http/pprof"
+	"os"
+	"os/signal"
 )
 
 func main() {
-	conf, err := LoadConfig("socks.config")
+	confGroup, err := LoadConfigGroup("socks.config")
 	if err != nil {
 		ErrLog.Println("initGlobalConfig failed, err:", err)
 		return
 	}
-	InfoLog.Println(conf)
+	InfoLog.Println(confGroup)
 
-	loadBalancer := NewLoadBalancer(conf.RemoteConfigs)
-	dnsCache := NewDNSCache(conf.DNSCacheTimeout)
-	upstreamConnector := NewUpstreamConnector(loadBalancer, dnsCache)
+	for _, conf := range confGroup.AllConfig {
+		loadBalancer := NewLoadBalancer(conf.AllUpstreamConfig)
+		dnsCache := NewDNSCache(conf.DNSCacheTimeout)
+		upstreamConnector := NewUpstreamConnector(loadBalancer, dnsCache)
 
-	go http.ListenAndServe(conf.PprofAddr, nil)
+		httpProxy := NewHTTPProxy(upstreamConnector.ConnectUpstream)
+		go httpProxy.Run(conf.HTTPProxyAddr)
 
-	httpProxy := NewHTTPProxy(upstreamConnector.ConnectUpstream)
-	go httpProxy.Run(conf.HTTPProxyAddr)
+		socks4Svr := NewSOCKS4Server(upstreamConnector.ConnectUpstream)
+		go socks4Svr.Run(conf.SOCKS4Addr)
 
-	socks4Svr := NewSOCKS4Server(upstreamConnector.ConnectUpstream)
-	go socks4Svr.Run(conf.SOCKS4Addr)
+		socks5Svr := NewSocks5Server(conf.LocalCryptoMethod, conf.LocalCryptoPassword, upstreamConnector.ConnectUpstream)
+		go socks5Svr.Run(conf.SOCKS5Addr)
+	}
+	go http.ListenAndServe(confGroup.PprofAddr, nil)
 
-	socks5Svr := NewSocks5Server(conf.LocalCryptoMethod, conf.LocalCryptoPassword, upstreamConnector.ConnectUpstream)
-	socks5Svr.Run(conf.SOCKS5Addr)
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Kill, os.Interrupt)
+	<-sigChan
 }
