@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net"
+	"strings"
 )
 
 type ConnectUpstream func(addr string) (net.Conn, error)
@@ -20,48 +21,72 @@ func NewUpstreamConnector(loadBalancer LoadBalancer, dnsCache *DNSCache) *Upstre
 }
 
 func (u *UpstreamConnector) ConnectUpstream(addr string) (net.Conn, error) {
-	upStreamServer, cryptoMethod, password := u.loadBalancer()
-	if upStreamServer != "" {
-		upStream, err := DialSOCKS5(upStreamServer, cryptoMethod, password)
-		if err != nil {
-			return nil, err
-		}
-		if err = upStream.ConnectUpstream(addr); err != nil {
-			upStream.Close()
-			return nil, err
-		}
-		return upStream, nil
-
-	} else {
-		host, port, err := parseAddress(addr)
-		if err != nil {
-			return nil, err
-		}
-		var dest string
-		var ipCached bool
-		switch h := host.(type) {
-		case net.IP:
-			{
-				dest = h.String()
-				ipCached = true
-			}
-		case string:
-			{
-				if p, ok := u.dnsCache.Get(h); ok {
-					dest = p.String()
-					ipCached = true
-				} else {
-					dest = h
+	serverType, proxyServer, cryptoMethod, password := u.loadBalancer()
+	switch strings.ToLower(serverType) {
+	default:
+		fallthrough
+	case "socks5":
+		{
+			if proxyServer != "" {
+				socks5Client, err := DialSOCKS5(proxyServer, cryptoMethod, password)
+				if err != nil {
+					return nil, err
 				}
+				if err = socks5Client.ConnectUpstream(addr); err != nil {
+					socks5Client.Close()
+					return nil, err
+				}
+				return socks5Client, nil
 			}
 		}
-		destConn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", dest, port))
-		if err != nil {
-			return nil, err
+	case "shadowsocks":
+		{
+			if proxyServer != "" {
+				shadowSocksClient, err := DialShadowSocks(proxyServer, cryptoMethod, password)
+				if err != nil {
+					return nil, err
+				}
+				if err = shadowSocksClient.ConnectUpstream(addr); err != nil {
+					shadowSocksClient.Close()
+					return nil, err
+				}
+				return shadowSocksClient, nil
+			}
 		}
-		if !ipCached {
-			u.dnsCache.Set(host.(string), destConn.RemoteAddr().(*net.TCPAddr).IP)
-		}
-		return destConn, nil
 	}
+
+	return u.DirectConnect(addr)
+}
+
+func (u *UpstreamConnector) DirectConnect(addr string) (net.Conn, error) {
+	host, port, err := parseAddress(addr)
+	if err != nil {
+		return nil, err
+	}
+	var dest string
+	var ipCached bool
+	switch h := host.(type) {
+	case net.IP:
+		{
+			dest = h.String()
+			ipCached = true
+		}
+	case string:
+		{
+			if p, ok := u.dnsCache.Get(h); ok {
+				dest = p.String()
+				ipCached = true
+			} else {
+				dest = h
+			}
+		}
+	}
+	destConn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", dest, port))
+	if err != nil {
+		return nil, err
+	}
+	if !ipCached {
+		u.dnsCache.Set(host.(string), destConn.RemoteAddr().(*net.TCPAddr).IP)
+	}
+	return destConn, nil
 }

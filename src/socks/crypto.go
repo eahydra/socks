@@ -1,83 +1,213 @@
 package main
 
 import (
+	"crypto/aes"
 	"crypto/cipher"
 	"crypto/des"
+	"crypto/md5"
+	"crypto/rand"
 	"crypto/rc4"
 	"io"
+	"strings"
 )
 
-var (
-	desIV = [...]byte{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07}
-)
-
-type CipherStream struct {
-	reader      io.Reader
-	writeCloser io.WriteCloser
+type CipherStreamReadWriter interface {
+	io.Reader
+	io.WriteCloser
 }
 
-func NewCipherStream(rwc io.ReadWriteCloser, cryptMethod string, password []byte) (*CipherStream, error) {
-	var stream *CipherStream
-	switch cryptMethod {
-	default:
-		stream = &CipherStream{
-			reader:      rwc,
-			writeCloser: rwc,
-		}
+func md5sum(d []byte) []byte {
+	h := md5.New()
+	h.Write(d)
+	return h.Sum(nil)
+}
 
-	case "rc4":
-		{
-			rc4CipherRead, err := rc4.NewCipher(password)
-			if err != nil {
-				return nil, err
-			}
-			rc4CipherWrite, err := rc4.NewCipher(password)
-			if err != nil {
-				return nil, err
-			}
+func evpBytesToKey(password []byte, keylen int) (key []byte) {
+	const md5len = 16
+	cnt := (keylen-1)/md5len + 1
+	m := make([]byte, cnt*md5len)
+	copy(m, md5sum(password))
 
-			stream = &CipherStream{
-				reader: &cipher.StreamReader{
-					S: rc4CipherRead,
-					R: rwc,
-				},
-				writeCloser: &cipher.StreamWriter{
-					S: rc4CipherWrite,
-					W: rwc,
-				},
-			}
+	d := make([]byte, md5len+len(password))
+	start := 0
+	for i := 1; i < cnt; i++ {
+		start += md5len
+		copy(d, m[start-md5len:start])
+		copy(d[md5len:], password)
+		copy(m[start:], md5sum(d))
+	}
+	return m[:keylen]
+}
+
+type RC4Cipher struct {
+	*cipher.StreamReader
+	*cipher.StreamWriter
+}
+
+func NewRC4Cipher(rwc io.ReadWriteCloser, password []byte) (*RC4Cipher, error) {
+	decryptCipher, err := rc4.NewCipher(password)
+	if err != nil {
+		return nil, err
+	}
+	encryptCipher, err := rc4.NewCipher(password)
+	if err != nil {
+		return nil, err
+	}
+	return &RC4Cipher{
+		StreamReader: &cipher.StreamReader{
+			S: decryptCipher,
+			R: rwc,
+		},
+		StreamWriter: &cipher.StreamWriter{
+			S: encryptCipher,
+			W: rwc,
+		},
+	}, nil
+}
+
+type DESCFBCipher struct {
+	block cipher.Block
+	rwc   io.ReadWriteCloser
+	*cipher.StreamReader
+	*cipher.StreamWriter
+}
+
+func NewDESCFBCipher(rwc io.ReadWriteCloser, password []byte) (*DESCFBCipher, error) {
+	block, err := des.NewCipher(password)
+	if err != nil {
+		return nil, err
+	}
+
+	return &DESCFBCipher{
+		block: block,
+		rwc:   rwc,
+	}, nil
+}
+
+func (d *DESCFBCipher) Read(p []byte) (n int, err error) {
+	if d.StreamReader == nil {
+		iv := make([]byte, d.block.BlockSize())
+		n, err = io.ReadFull(d.rwc, iv)
+		if err != nil {
+			return n, err
 		}
-	case "des":
-		{
-			block, err := des.NewCipher(password)
-			if err != nil {
-				return nil, err
-			}
-			desRead := cipher.NewCFBDecrypter(block, desIV[:])
-			desWrite := cipher.NewCFBEncrypter(block, desIV[:])
-			return &CipherStream{
-				reader: &cipher.StreamReader{
-					S: desRead,
-					R: rwc,
-				},
-				writeCloser: &cipher.StreamWriter{
-					S: desWrite,
-					W: rwc,
-				},
-			}, nil
+		stream := cipher.NewCFBDecrypter(d.block, iv)
+		d.StreamReader = &cipher.StreamReader{
+			S: stream,
+			R: d.rwc,
 		}
 	}
-	return stream, nil
+	return d.StreamReader.Read(p)
 }
 
-func (c *CipherStream) Read(data []byte) (int, error) {
-	return c.reader.Read(data)
+func (d *DESCFBCipher) Write(p []byte) (n int, err error) {
+	if d.StreamWriter == nil {
+		iv := make([]byte, d.block.BlockSize())
+		_, err = rand.Read(iv)
+		if err != nil {
+			return 0, err
+		}
+		stream := cipher.NewCFBEncrypter(d.block, iv)
+		d.StreamWriter = &cipher.StreamWriter{
+			S: stream,
+			W: d.rwc,
+		}
+		n, err := d.rwc.Write(iv)
+		if err != nil {
+			return n, err
+		}
+	}
+	return d.StreamWriter.Write(p)
 }
 
-func (c *CipherStream) Write(data []byte) (int, error) {
-	return c.writeCloser.Write(data)
+func (d *DESCFBCipher) Close() error {
+	if d.StreamWriter != nil {
+		d.StreamWriter.Close()
+	}
+	if d.rwc != nil {
+		d.rwc.Close()
+	}
+	return nil
 }
 
-func (c *CipherStream) Close() error {
-	return c.writeCloser.Close()
+type AESCFBCipher struct {
+	rwc   io.ReadWriteCloser
+	iv    []byte
+	block cipher.Block
+	*cipher.StreamReader
+	*cipher.StreamWriter
+}
+
+func NewAESCFGCipher(rwc io.ReadWriteCloser, password []byte, bit int) (*AESCFBCipher, error) {
+	block, err := aes.NewCipher(evpBytesToKey(password, bit))
+	if err != nil {
+		return nil, err
+	}
+	return &AESCFBCipher{
+		block: block,
+		rwc:   rwc,
+	}, nil
+}
+
+func (a *AESCFBCipher) Read(p []byte) (n int, err error) {
+	if a.StreamReader == nil {
+		iv := make([]byte, a.block.BlockSize())
+		n, err = io.ReadFull(a.rwc, iv)
+		if err != nil {
+			return n, err
+		}
+		stream := cipher.NewCFBDecrypter(a.block, iv)
+		a.StreamReader = &cipher.StreamReader{
+			S: stream,
+			R: a.rwc,
+		}
+	}
+	return a.StreamReader.Read(p)
+}
+
+func (a *AESCFBCipher) Write(p []byte) (n int, err error) {
+	if a.StreamWriter == nil {
+		iv := make([]byte, a.block.BlockSize())
+		_, err = rand.Read(iv)
+		if err != nil {
+			return 0, err
+		}
+		stream := cipher.NewCFBEncrypter(a.block, iv)
+		a.StreamWriter = &cipher.StreamWriter{
+			S: stream,
+			W: a.rwc,
+		}
+		n, err := a.rwc.Write(iv)
+		if err != nil {
+			return n, err
+		}
+	}
+	return a.StreamWriter.Write(p)
+}
+
+func (a *AESCFBCipher) Close() error {
+	if a.StreamWriter != nil {
+		a.StreamWriter.Close()
+	}
+	if a.rwc != nil {
+		a.rwc.Close()
+	}
+	return nil
+}
+
+func NewCipherStream(rwc io.ReadWriteCloser, cryptMethod string, password []byte) (CipherStreamReadWriter, error) {
+	switch strings.ToLower(cryptMethod) {
+	default:
+		return rwc, nil
+	case "rc4":
+		return NewRC4Cipher(rwc, password)
+	case "des":
+		return NewDESCFBCipher(rwc, password)
+	case "aes-128-cfb":
+		return NewAESCFGCipher(rwc, password, 16)
+	case "aes-192-cfb":
+		return NewAESCFGCipher(rwc, password, 24)
+	case "aes-256-cfb":
+		return NewAESCFGCipher(rwc, password, 32)
+	}
 }

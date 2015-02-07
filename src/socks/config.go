@@ -6,6 +6,7 @@ import (
 )
 
 type UpstreamConfig struct {
+	ServerType   string `json:"serverType"`
 	CryptoMethod string `json:"cryptoMethod"`
 	Password     string `json:"password"`
 	Addr         string `json:"addr"`
