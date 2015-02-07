@@ -30,6 +30,7 @@ go build
 	        "dnsCacheTimeout":10,
 	        "upstream": [
 		        {
+                    "serverType":"socks5",
 			        "cryptoMethod": "rc4",
 			        "password": "abcd#1234",
 			        "addr": "54.64.248.242:9999"
@@ -59,6 +60,7 @@ localCryptoMethod   - 本地SOCKS5的加密算法，如果为空，表示不开�
 localPasssword      - 加密算法使用到的密钥  
 dnsCacheTimeout     - 表示DNS的缓存时间,单位为分钟  
 upstream            - 表示对应的上端服务列表  
+serverType          - 表示服务器类型，默认为SOCKS5，可以设置为shadowsocks
 cryptoMethod        - 表示上端使用到的加密算法  
 password            - 表示上端加密算法的密钥  
 addr                - 表示对应的服务端地址和端口  
