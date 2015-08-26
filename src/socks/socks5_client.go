@@ -40,14 +40,10 @@ func DialSOCKS5(addr, cryptoMethod, password string) (*Socks5Client, error) {
 	return client, nil
 }
 
-func parseAddress(addr string) (interface{}, int, error) {
-	host, p, err := net.SplitHostPort(addr)
+func parseAddress(addr string) (interface{}, string, error) {
+	host, port, err := net.SplitHostPort(addr)
 	if err != nil {
-		return nil, 0, err
-	}
-	port, err := strconv.Atoi(p)
-	if err != nil {
-		return nil, 0, err
+		return nil, "", err
 	}
 	ip := net.ParseIP(addr)
 	if ip != nil {
@@ -58,7 +54,11 @@ func parseAddress(addr string) (interface{}, int, error) {
 }
 
 func buildSOCKS5Request(addr string) ([]byte, error) {
-	host, port, err := parseAddress(addr)
+	host, p, err := parseAddress(addr)
+	if err != nil {
+		return nil, err
+	}
+	port, err := strconv.Atoi(p)
 	if err != nil {
 		return nil, err
 	}

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"net"
+	"strconv"
 	"time"
 )
 
@@ -29,7 +30,11 @@ func DialShadowSocks(addr, cryptoMethod, password string) (*ShadowSocksClient, e
 }
 
 func buildShadowSocksRequest(addr string) ([]byte, error) {
-	host, port, err := parseAddress(addr)
+	host, p, err := parseAddress(addr)
+	if err != nil {
+		return nil, err
+	}
+	port, err := strconv.Atoi(p)
 	if err != nil {
 		return nil, err
 	}

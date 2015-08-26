@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"net"
 	"strings"
 )
@@ -81,7 +80,7 @@ func (u *UpstreamConnector) DirectConnect(addr string) (net.Conn, error) {
 			}
 		}
 	}
-	destConn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", dest, port))
+	destConn, err := net.Dial("tcp", net.JoinHostPort(dest, port))
 	if err != nil {
 		return nil, err
 	}
