@@ -10,13 +10,13 @@ import (
 	"time"
 )
 
-type Socks5Client struct {
+type SOCKS5Client struct {
 	conn net.Conn
 	CipherStreamReadWriter
 }
 
-func newSocks5Client(conn net.Conn, cryptoMethod string, password string) (*Socks5Client, error) {
-	client := &Socks5Client{
+func NewSOCKS5Client(conn net.Conn, cryptoMethod string, password string) (*SOCKS5Client, error) {
+	client := &SOCKS5Client{
 		conn: conn,
 	}
 	var err error
@@ -27,12 +27,12 @@ func newSocks5Client(conn net.Conn, cryptoMethod string, password string) (*Sock
 	return client, nil
 }
 
-func DialSOCKS5(addr, cryptoMethod, password string) (*Socks5Client, error) {
+func DialSOCKS5(addr, cryptoMethod, password string) (*SOCKS5Client, error) {
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		return nil, err
 	}
-	client, err := newSocks5Client(conn, cryptoMethod, password)
+	client, err := NewSOCKS5Client(conn, cryptoMethod, password)
 	if err != nil {
 		conn.Close()
 		return nil, err
@@ -87,7 +87,7 @@ func buildSOCKS5Request(addr string) ([]byte, error) {
 	return req.Bytes(), nil
 }
 
-func (c *Socks5Client) ConnectUpstream(destAddr string) error {
+func (c *SOCKS5Client) ConnectUpstream(destAddr string) error {
 	buff := []byte{0x05, 0x01, 0x00}
 	_, err := c.Write(buff)
 	if err != nil {
@@ -117,7 +117,7 @@ func (c *Socks5Client) ConnectUpstream(destAddr string) error {
 	return nil
 }
 
-func (c *Socks5Client) serve(connectUpstream ConnectUpstream) {
+func (c *SOCKS5Client) serve(connectUpstream ConnectUpstream) {
 	defer func() {
 		c.Close()
 	}()
@@ -159,7 +159,7 @@ func (c *Socks5Client) serve(connectUpstream ConnectUpstream) {
 	io.Copy(dest, c)
 }
 
-func (c *Socks5Client) handshake() error {
+func (c *SOCKS5Client) handshake() error {
 	// version(1) + numMethods(1) + [256]methods
 	buff := make([]byte, 258)
 	n, err := io.ReadAtLeast(c, buff, 2)
@@ -186,7 +186,7 @@ func (c *Socks5Client) handshake() error {
 	return nil
 }
 
-func (c *Socks5Client) getCommand() (cmd byte, destHost string, destPort uint16, err error) {
+func (c *SOCKS5Client) getCommand() (cmd byte, destHost string, destPort uint16, err error) {
 	// version(1) + cmd(1) + reserved(1) + addrType(1) + domainLength(1) + maxDomainLength(256) + port(2)
 	buff := make([]byte, 263)
 	var n int
@@ -228,22 +228,22 @@ func (c *Socks5Client) getCommand() (cmd byte, destHost string, destPort uint16,
 	return
 }
 
-func (c *Socks5Client) LocalAddr() net.Addr {
+func (c *SOCKS5Client) LocalAddr() net.Addr {
 	return c.conn.LocalAddr()
 }
 
-func (c *Socks5Client) RemoteAddr() net.Addr {
+func (c *SOCKS5Client) RemoteAddr() net.Addr {
 	return c.conn.RemoteAddr()
 }
 
-func (c *Socks5Client) SetDeadline(t time.Time) error {
+func (c *SOCKS5Client) SetDeadline(t time.Time) error {
 	return c.conn.SetDeadline(t)
 }
 
-func (c *Socks5Client) SetReadDeadline(t time.Time) error {
+func (c *SOCKS5Client) SetReadDeadline(t time.Time) error {
 	return c.conn.SetReadDeadline(t)
 }
 
-func (c *Socks5Client) SetWriteDeadline(t time.Time) error {
+func (c *SOCKS5Client) SetWriteDeadline(t time.Time) error {
 	return c.conn.SetWriteDeadline(t)
 }

@@ -81,7 +81,11 @@ func (h *HTTPProxy) ServeHTTPTunnel(response http.ResponseWriter, request *http.
 	}
 	fmt.Fprintf(conn, "HTTP/1.0 200 Connection established\r\n\r\n")
 
-	go io.Copy(dest, conn)
+	go func() {
+		defer conn.Close()
+		defer dest.Close()
+		io.Copy(dest, conn)
+	}()
 	io.Copy(conn, dest)
 }
 

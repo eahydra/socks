@@ -51,9 +51,7 @@ func NewSOCKS4ClientConn(conn net.Conn) *SOCKS4ClientConn {
 }
 
 func (c *SOCKS4ClientConn) Run(connectUpstream ConnectUpstream) {
-	defer func() {
-		c.Close()
-	}()
+	defer c.Close()
 
 	cmd, destIP, destPort, err := c.handshake()
 	if err != nil {
@@ -79,8 +77,12 @@ func (c *SOCKS4ClientConn) Run(connectUpstream ConnectUpstream) {
 		return
 	}
 
-	go io.Copy(dest, c)
-	_, err = io.Copy(c, dest)
+	go func() {
+		defer c.Close()
+		defer dest.Close()
+		io.Copy(dest, c)
+	}()
+	io.Copy(c, dest)
 }
 
 func (c *SOCKS4ClientConn) handshake() (cmd byte, ip net.IP, port uint16, err error) {

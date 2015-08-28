@@ -42,7 +42,7 @@ func (s *SOCKS5Server) Run(addr string) error {
 			}
 		}
 
-		if clientConn, err := newSocks5Client(conn, s.cryptoMethod, s.password); err == nil {
+		if clientConn, err := NewSOCKS5Client(conn, s.cryptoMethod, s.password); err == nil {
 			go clientConn.serve(s.connectUpstream)
 
 		} else {
