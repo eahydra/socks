@@ -7,29 +7,20 @@ import (
 
 var (
 	ErrUnsupportedVersion = errors.New("socks unsupported version")
-	ErrUnsupportedCommand = errors.New("socks unsupported command")
 	ErrInvalidProtocol    = errors.New("socks invalid protocol")
 )
 
 type SOCKS5Server struct {
-	cryptoMethod    string
-	password        string
-	connectUpstream ConnectUpstream
+	router Router
 }
 
-func NewSocks5Server(cryptMethod string, password string, connectUpstream ConnectUpstream) *SOCKS5Server {
+func NewSocks5Server(router Router) *SOCKS5Server {
 	return &SOCKS5Server{
-		cryptoMethod:    cryptMethod,
-		password:        password,
-		connectUpstream: connectUpstream,
+		router: router,
 	}
 }
 
-func (s *SOCKS5Server) Run(addr string) error {
-	listener, err := net.Listen("tcp4", addr)
-	if err != nil {
-		return err
-	}
+func (s *SOCKS5Server) Run(listener net.Listener) error {
 	defer listener.Close()
 
 	for {
@@ -42,12 +33,8 @@ func (s *SOCKS5Server) Run(addr string) error {
 			}
 		}
 
-		if clientConn, err := NewSOCKS5Client(conn, s.cryptoMethod, s.password); err == nil {
-			go clientConn.serve(s.connectUpstream)
-
-		} else {
-			conn.Close()
-		}
+		client := NewSOCKS5Client(conn)
+		go client.serve(s.router)
 	}
 	panic("unreached")
 }

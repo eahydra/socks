@@ -8,12 +8,12 @@ import (
 )
 
 type SOCKS4Server struct {
-	connectUpstream ConnectUpstream
+	router Router
 }
 
-func NewSOCKS4Server(connectUpstream ConnectUpstream) *SOCKS4Server {
+func NewSOCKS4Server(router Router) *SOCKS4Server {
 	return &SOCKS4Server{
-		connectUpstream: connectUpstream,
+		router: router,
 	}
 }
 
@@ -34,7 +34,7 @@ func (s *SOCKS4Server) Run(addr string) error {
 			}
 		}
 		clientConn := NewSOCKS4ClientConn(conn)
-		go clientConn.Run(s.connectUpstream)
+		go clientConn.serve(s.router)
 	}
 	panic("unreached")
 }
@@ -50,7 +50,7 @@ func NewSOCKS4ClientConn(conn net.Conn) *SOCKS4ClientConn {
 	return clientConn
 }
 
-func (c *SOCKS4ClientConn) Run(connectUpstream ConnectUpstream) {
+func (c *SOCKS4ClientConn) serve(router Router) {
 	defer c.Close()
 
 	cmd, destIP, destPort, err := c.handshake()
@@ -65,7 +65,7 @@ func (c *SOCKS4ClientConn) Run(connectUpstream ConnectUpstream) {
 		return
 	}
 
-	dest, err := connectUpstream(fmt.Sprintf("%s:%d", destIP.String(), destPort))
+	dest, err := router.Do(net.JoinHostPort(destIP.String(), fmt.Sprintf("%d", destPort)))
 	if err != nil {
 		reply[1] = 0x5c // connect failed
 		c.Write(reply)

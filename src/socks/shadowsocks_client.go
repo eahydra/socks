@@ -5,32 +5,32 @@ import (
 	"encoding/binary"
 	"net"
 	"strconv"
-	"time"
 )
 
 type ShadowSocksClient struct {
-	conn net.Conn
-	CipherStreamReadWriter
+	net.Conn
 }
 
-func DialShadowSocks(addr, cryptoMethod, password string) (*ShadowSocksClient, error) {
-	conn, err := net.Dial("tcp4", addr)
-	if err != nil {
-		return nil, err
-	}
-	cipher, err := NewCipherStream(conn, cryptoMethod, []byte(password))
-	if err != nil {
-		conn.Close()
-		return nil, err
-	}
+func NewShadowSocksClient(conn net.Conn) *ShadowSocksClient {
 	return &ShadowSocksClient{
-		conn: conn,
-		CipherStreamReadWriter: cipher,
-	}, nil
+		Conn: conn,
+	}
 }
 
-func buildShadowSocksRequest(addr string) ([]byte, error) {
-	host, p, err := parseAddress(addr)
+func (s *ShadowSocksClient) RequestProxy(addr string) error {
+	req, err := buildShadowSocksRequest(addr)
+	if err != nil {
+		return err
+	}
+	_, err = s.Write(req)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func buildShadowSocksRequest(address string) ([]byte, error) {
+	host, p, err := parseAddress(address)
 	if err != nil {
 		return nil, err
 	}
@@ -59,36 +59,4 @@ func buildShadowSocksRequest(addr string) ([]byte, error) {
 		binary.Write(req, binary.BigEndian, uint16(port))
 	}
 	return req.Bytes(), nil
-}
-
-func (s *ShadowSocksClient) ConnectUpstream(addr string) error {
-	req, err := buildShadowSocksRequest(addr)
-	if err != nil {
-		return err
-	}
-	_, err = s.Write(req)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (s *ShadowSocksClient) LocalAddr() net.Addr {
-	return s.conn.LocalAddr()
-}
-
-func (s *ShadowSocksClient) RemoteAddr() net.Addr {
-	return s.conn.RemoteAddr()
-}
-
-func (s *ShadowSocksClient) SetDeadline(t time.Time) error {
-	return s.conn.SetDeadline(t)
-}
-
-func (s *ShadowSocksClient) SetReadDeadline(t time.Time) error {
-	return s.conn.SetReadDeadline(t)
-}
-
-func (s *ShadowSocksClient) SetWriteDeadline(t time.Time) error {
-	return s.conn.SetWriteDeadline(t)
 }

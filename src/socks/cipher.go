@@ -8,13 +8,7 @@ import (
 	"crypto/rand"
 	"crypto/rc4"
 	"io"
-	"strings"
 )
-
-type CipherStreamReadWriter interface {
-	io.Reader
-	io.WriteCloser
-}
 
 func md5sum(d []byte) []byte {
 	h := md5.New()
@@ -193,21 +187,4 @@ func (a *AESCFBCipher) Close() error {
 		a.rwc.Close()
 	}
 	return nil
-}
-
-func NewCipherStream(rwc io.ReadWriteCloser, cryptMethod string, password []byte) (CipherStreamReadWriter, error) {
-	switch strings.ToLower(cryptMethod) {
-	default:
-		return rwc, nil
-	case "rc4":
-		return NewRC4Cipher(rwc, password)
-	case "des":
-		return NewDESCFBCipher(rwc, password)
-	case "aes-128-cfb":
-		return NewAESCFGCipher(rwc, password, 16)
-	case "aes-192-cfb":
-		return NewAESCFGCipher(rwc, password, 24)
-	case "aes-256-cfb":
-		return NewAESCFGCipher(rwc, password, 32)
-	}
 }

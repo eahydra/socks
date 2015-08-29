@@ -7,45 +7,24 @@ import (
 	"io"
 	"net"
 	"strconv"
-	"time"
 )
 
 type SOCKS5Client struct {
-	conn net.Conn
-	CipherStreamReadWriter
+	net.Conn
 }
 
-func NewSOCKS5Client(conn net.Conn, cryptoMethod string, password string) (*SOCKS5Client, error) {
-	client := &SOCKS5Client{
-		conn: conn,
+func NewSOCKS5Client(conn net.Conn) *SOCKS5Client {
+	return &SOCKS5Client{
+		Conn: conn,
 	}
-	var err error
-	client.CipherStreamReadWriter, err = NewCipherStream(conn, cryptoMethod, []byte(password))
-	if err != nil {
-		return nil, err
-	}
-	return client, nil
 }
 
-func DialSOCKS5(addr, cryptoMethod, password string) (*SOCKS5Client, error) {
-	conn, err := net.Dial("tcp", addr)
-	if err != nil {
-		return nil, err
-	}
-	client, err := NewSOCKS5Client(conn, cryptoMethod, password)
-	if err != nil {
-		conn.Close()
-		return nil, err
-	}
-	return client, nil
-}
-
-func parseAddress(addr string) (interface{}, string, error) {
-	host, port, err := net.SplitHostPort(addr)
+func parseAddress(address string) (interface{}, string, error) {
+	host, port, err := net.SplitHostPort(address)
 	if err != nil {
 		return nil, "", err
 	}
-	ip := net.ParseIP(addr)
+	ip := net.ParseIP(address)
 	if ip != nil {
 		return ip, port, nil
 	} else {
@@ -87,7 +66,7 @@ func buildSOCKS5Request(addr string) ([]byte, error) {
 	return req.Bytes(), nil
 }
 
-func (c *SOCKS5Client) ConnectUpstream(destAddr string) error {
+func (c *SOCKS5Client) RequestProxy(address string) error {
 	buff := []byte{0x05, 0x01, 0x00}
 	_, err := c.Write(buff)
 	if err != nil {
@@ -101,7 +80,7 @@ func (c *SOCKS5Client) ConnectUpstream(destAddr string) error {
 	if buff[0] != 0x05 || buff[1] != 0x00 {
 		return ErrInvalidProtocol
 	}
-	cmd, err := buildSOCKS5Request(destAddr)
+	cmd, err := buildSOCKS5Request(address)
 	if err != nil {
 		return err
 	}
@@ -117,10 +96,8 @@ func (c *SOCKS5Client) ConnectUpstream(destAddr string) error {
 	return nil
 }
 
-func (c *SOCKS5Client) serve(connectUpstream ConnectUpstream) {
-	defer func() {
-		c.Close()
-	}()
+func (c *SOCKS5Client) serve(router Router) {
+	defer c.Close()
 
 	if err := c.handshake(); err != nil {
 		return
@@ -137,7 +114,7 @@ func (c *SOCKS5Client) serve(connectUpstream ConnectUpstream) {
 		return
 	}
 
-	dest, err := connectUpstream(fmt.Sprintf("%s:%d", destHost, destPort))
+	dest, err := router.Do(net.JoinHostPort(destHost, fmt.Sprintf("%d", destPort)))
 	if err != nil {
 		reply[1] = 0x05
 		c.Write(reply)
@@ -226,24 +203,4 @@ func (c *SOCKS5Client) getCommand() (cmd byte, destHost string, destPort uint16,
 	}
 	destPort = binary.BigEndian.Uint16(buff[totalLength-2 : totalLength])
 	return
-}
-
-func (c *SOCKS5Client) LocalAddr() net.Addr {
-	return c.conn.LocalAddr()
-}
-
-func (c *SOCKS5Client) RemoteAddr() net.Addr {
-	return c.conn.RemoteAddr()
-}
-
-func (c *SOCKS5Client) SetDeadline(t time.Time) error {
-	return c.conn.SetDeadline(t)
-}
-
-func (c *SOCKS5Client) SetReadDeadline(t time.Time) error {
-	return c.conn.SetReadDeadline(t)
-}
-
-func (c *SOCKS5Client) SetWriteDeadline(t time.Time) error {
-	return c.conn.SetWriteDeadline(t)
 }

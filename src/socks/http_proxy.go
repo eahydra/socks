@@ -11,20 +11,20 @@ import (
 
 type HTTPProxy struct {
 	*httputil.ReverseProxy
-	connectUpstream ConnectUpstream
+	router Router
 }
 
-func NewHTTPProxy(connectUpstream ConnectUpstream) *HTTPProxy {
+func NewHTTPProxy(router Router) *HTTPProxy {
 	return &HTTPProxy{
 		ReverseProxy: &httputil.ReverseProxy{
 			Director: director,
 			Transport: &http.Transport{
 				Dial: func(network, addr string) (net.Conn, error) {
-					return connectUpstream(addr)
+					return router.Do(addr)
 				},
 			},
 		},
-		connectUpstream: connectUpstream,
+		router: router,
 	}
 }
 
@@ -66,7 +66,7 @@ func (h *HTTPProxy) ServeHTTPTunnel(response http.ResponseWriter, request *http.
 	}
 	defer conn.Close()
 
-	dest, err := h.connectUpstream(request.Host)
+	dest, err := h.router.Do(request.Host)
 	if err != nil {
 		fmt.Fprintf(conn, "HTTP/1.0 500 NewRemoteSocks failed, err:%s\r\n\r\n", err)
 		return
