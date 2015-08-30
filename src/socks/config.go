@@ -16,6 +16,7 @@ type Config struct {
 	HTTPProxyAddr       string           `json:"httpProxyAddr"`
 	SOCKS4Addr          string           `json:"socks4Addr"`
 	SOCKS5Addr          string           `json:"socks5Addr"`
+	UTPSOCKS5Addr       string           `json:"utpsocks5Addr"`
 	LocalCryptoMethod   string           `json:"localCryptoMethod"`
 	LocalCryptoPassword string           `json:"localPassword"`
 	DNSCacheTimeout     int              `json:dnsCacheTimeout`

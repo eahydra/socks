@@ -9,15 +9,19 @@ type SOCKClient interface {
 
 type ClientFactory func(conn net.Conn) SOCKClient
 
+type Dialer func(address string) (net.Conn, error)
+
 type SOCKSRouter struct {
 	serverAddress string
+	dialer        Dialer
 	clientFactory ClientFactory
 	decorators    []ConnDecorator
 }
 
-func NewSOCKSRouter(serverAddress string, factory ClientFactory, ds ...ConnDecorator) *SOCKSRouter {
+func NewSOCKSRouter(serverAddress string, dialer Dialer, factory ClientFactory, ds ...ConnDecorator) *SOCKSRouter {
 	s := &SOCKSRouter{
 		serverAddress: serverAddress,
+		dialer:        dialer,
 		clientFactory: factory,
 	}
 	s.decorators = append(s.decorators, ds...)
@@ -25,7 +29,7 @@ func NewSOCKSRouter(serverAddress string, factory ClientFactory, ds ...ConnDecor
 }
 
 func (s *SOCKSRouter) Do(address string) (net.Conn, error) {
-	conn, err := net.Dial("tcp", s.serverAddress)
+	conn, err := s.dialer(s.serverAddress)
 	if err != nil {
 		return nil, err
 	}

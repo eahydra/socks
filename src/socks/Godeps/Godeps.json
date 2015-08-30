@@ -1,0 +1,26 @@
+{
+	"ImportPath": "socks",
+	"GoVersion": "go1.5",
+	"Deps": [
+		{
+			"ImportPath": "github.com/anacrolix/jitter",
+			"Rev": "2ea5c18645100745b24e9f5cfc9b3f6f7eac51ef"
+		},
+		{
+			"ImportPath": "github.com/anacrolix/missinggo",
+			"Rev": "671c3b49f613d974a3e33bde86b72b5e68c48901"
+		},
+		{
+			"ImportPath": "github.com/anacrolix/utp",
+			"Rev": "bf70a191f2141056f162964af711e93b8a32b6b1"
+		},
+		{
+			"ImportPath": "github.com/bradfitz/iter",
+			"Rev": "454541ec3da2a73fc34fd049b19ee5777bf19345"
+		},
+		{
+			"ImportPath": "github.com/spacemonkeygo/monotime",
+			"Rev": "1aa76eb50f468f130ac4779d63f82b3fa81e7510"
+		}
+	]
+}

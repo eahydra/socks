@@ -7,6 +7,8 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+
+	"github.com/anacrolix/utp"
 )
 
 func main() {
@@ -22,6 +24,7 @@ func main() {
 		runHTTPProxyServer(conf, router)
 		runSOCKS4Server(conf, router)
 		runSOCKS5Server(conf, router)
+		runUTPSOCKS5Server(conf, router)
 	}
 	go http.ListenAndServe(confGroup.PprofAddr, nil)
 
@@ -37,18 +40,36 @@ func BuildUpstreamRouter(conf Config) *UpstreamRouter {
 		switch strings.ToLower(upstreamConf.ServerType) {
 		case "socks5":
 			{
-				socks5ClientFactory := func(conn net.Conn) SOCKClient {
+				dialer := func(address string) (net.Conn, error) {
+					return net.Dial("tcp", address)
+				}
+
+				clientFactory := func(conn net.Conn) SOCKClient {
 					return NewSOCKS5Client(conn)
 				}
-				router = NewSOCKSRouter(upstreamConf.Addr, socks5ClientFactory,
+
+				router = NewSOCKSRouter(upstreamConf.Addr, dialer, clientFactory,
 					CipherConnDecorator(upstreamConf.CryptoMethod, upstreamConf.Password))
 			}
 		case "shadowsocks":
 			{
-				shadowSocksClientFactory := func(conn net.Conn) SOCKClient {
+				dialer := func(address string) (net.Conn, error) {
+					return net.Dial("tcp", address)
+				}
+
+				clientFactory := func(conn net.Conn) SOCKClient {
 					return NewShadowSocksClient(conn)
 				}
-				router = NewSOCKSRouter(upstreamConf.Addr, shadowSocksClientFactory,
+				router = NewSOCKSRouter(upstreamConf.Addr, dialer, clientFactory,
+					CipherConnDecorator(upstreamConf.CryptoMethod, upstreamConf.Password))
+			}
+		case "utpsocks5":
+			{
+				clientFactory := func(conn net.Conn) SOCKClient {
+					return NewSOCKS5Client(conn)
+				}
+
+				router = NewSOCKSRouter(upstreamConf.Addr, utp.Dial, clientFactory,
 					CipherConnDecorator(upstreamConf.CryptoMethod, upstreamConf.Password))
 			}
 		default:
@@ -82,6 +103,19 @@ func runSOCKS4Server(conf Config, router Router) {
 func runSOCKS5Server(conf Config, router Router) {
 	if conf.SOCKS5Addr != "" {
 		listener, err := net.Listen("tcp", conf.SOCKS5Addr)
+		if err == nil {
+			listener = NewDecorateListener(listener, CipherConnDecorator(conf.LocalCryptoMethod, conf.LocalCryptoPassword))
+			socks5Svr := NewSocks5Server(router)
+			go socks5Svr.Run(listener)
+		}
+	}
+}
+
+func runUTPSOCKS5Server(conf Config, router Router) {
+	if conf.UTPSOCKS5Addr != "" {
+		var listener net.Listener
+		var err error
+		listener, err = utp.NewSocket("udp", conf.UTPSOCKS5Addr)
 		if err == nil {
 			listener = NewDecorateListener(listener, CipherConnDecorator(conf.LocalCryptoMethod, conf.LocalCryptoPassword))
 			socks5Svr := NewSocks5Server(router)
