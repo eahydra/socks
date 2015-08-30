@@ -83,7 +83,7 @@ func runSOCKS5Server(conf Config, router Router) {
 	if conf.SOCKS5Addr != "" {
 		listener, err := net.Listen("tcp", conf.SOCKS5Addr)
 		if err == nil {
-			listener = NewDecorateListener(listener, CipherConnDecorator(conf.LocalCryptoMethod, conf.LocalCryptoMethod))
+			listener = NewDecorateListener(listener, CipherConnDecorator(conf.LocalCryptoMethod, conf.LocalCryptoPassword))
 			socks5Svr := NewSocks5Server(router)
 			go socks5Svr.Run(listener)
 		}
