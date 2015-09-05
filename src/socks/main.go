@@ -37,30 +37,23 @@ func BuildUpstreamRouter(conf Config) *UpstreamRouter {
 	var routers []Router
 	for _, upstreamConf := range conf.AllUpstreamConfig {
 		var router Router
+		router = NewDirectRouter(conf.DNSCacheTimeout)
 		switch strings.ToLower(upstreamConf.ServerType) {
 		case "socks5":
 			{
-				dialer := func(address string) (net.Conn, error) {
-					return net.Dial("tcp", address)
-				}
-
 				clientFactory := func(conn net.Conn) SOCKClient {
 					return NewSOCKS5Client(conn)
 				}
 
-				router = NewSOCKSRouter(upstreamConf.Addr, dialer, clientFactory,
+				router = NewSOCKSRouter(upstreamConf.Addr, router, clientFactory,
 					CipherConnDecorator(upstreamConf.CryptoMethod, upstreamConf.Password))
 			}
 		case "shadowsocks":
 			{
-				dialer := func(address string) (net.Conn, error) {
-					return net.Dial("tcp", address)
-				}
-
 				clientFactory := func(conn net.Conn) SOCKClient {
 					return NewShadowSocksClient(conn)
 				}
-				router = NewSOCKSRouter(upstreamConf.Addr, dialer, clientFactory,
+				router = NewSOCKSRouter(upstreamConf.Addr, router, clientFactory,
 					CipherConnDecorator(upstreamConf.CryptoMethod, upstreamConf.Password))
 			}
 		case "utpsocks5":
@@ -69,12 +62,9 @@ func BuildUpstreamRouter(conf Config) *UpstreamRouter {
 					return NewSOCKS5Client(conn)
 				}
 
-				router = NewSOCKSRouter(upstreamConf.Addr, utp.Dial, clientFactory,
+				router = NewDirectUTPRouter()
+				router = NewSOCKSRouter(upstreamConf.Addr, router, clientFactory,
 					CipherConnDecorator(upstreamConf.CryptoMethod, upstreamConf.Password))
-			}
-		default:
-			{
-				router = NewDirectRouter(conf.DNSCacheTimeout)
 			}
 		}
 		routers = append(routers, router)
