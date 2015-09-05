@@ -19,7 +19,7 @@ type Config struct {
 	UTPSOCKS5Addr       string           `json:"utpsocks5Addr"`
 	LocalCryptoMethod   string           `json:"localCryptoMethod"`
 	LocalCryptoPassword string           `json:"localPassword"`
-	DNSCacheTimeout     int              `json:dnsCacheTimeout`
+	DNSCacheTimeout     int              `json:"dnsCacheTimeout"`
 	AllUpstreamConfig   []UpstreamConfig `json:"upstream"`
 }
 
