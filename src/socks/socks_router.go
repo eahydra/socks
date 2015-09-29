@@ -11,13 +11,15 @@ type ClientFactory func(conn net.Conn) SOCKClient
 
 type SOCKSRouter struct {
 	serverAddress string
+	baseRouter    Router
 	clientFactory ClientFactory
 	decorators    []ConnDecorator
 }
 
-func NewSOCKSRouter(serverAddress string, factory ClientFactory, ds ...ConnDecorator) *SOCKSRouter {
+func NewSOCKSRouter(serverAddress string, baseRouter Router, factory ClientFactory, ds ...ConnDecorator) *SOCKSRouter {
 	s := &SOCKSRouter{
 		serverAddress: serverAddress,
+		baseRouter:    baseRouter,
 		clientFactory: factory,
 	}
 	s.decorators = append(s.decorators, ds...)
@@ -25,13 +27,13 @@ func NewSOCKSRouter(serverAddress string, factory ClientFactory, ds ...ConnDecor
 }
 
 func (s *SOCKSRouter) Do(address string) (net.Conn, error) {
-	conn, err := net.Dial("tcp", s.serverAddress)
+	conn, err := s.baseRouter.Do(s.serverAddress)
 	if err != nil {
 		return nil, err
 	}
 	dconn, err := DecorateConn(conn, s.decorators...)
 	if err != nil {
-		dconn.Close()
+		conn.Close()
 		return nil, err
 	}
 	client := s.clientFactory(dconn)

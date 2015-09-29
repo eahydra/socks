@@ -34,26 +34,24 @@ func BuildUpstreamRouter(conf Config) *UpstreamRouter {
 	var routers []Router
 	for _, upstreamConf := range conf.AllUpstreamConfig {
 		var router Router
+		router = NewDirectRouter(conf.DNSCacheTimeout)
 		switch strings.ToLower(upstreamConf.ServerType) {
 		case "socks5":
 			{
-				socks5ClientFactory := func(conn net.Conn) SOCKClient {
+				clientFactory := func(conn net.Conn) SOCKClient {
 					return NewSOCKS5Client(conn)
 				}
-				router = NewSOCKSRouter(upstreamConf.Addr, socks5ClientFactory,
+
+				router = NewSOCKSRouter(upstreamConf.Addr, router, clientFactory,
 					CipherConnDecorator(upstreamConf.CryptoMethod, upstreamConf.Password))
 			}
 		case "shadowsocks":
 			{
-				shadowSocksClientFactory := func(conn net.Conn) SOCKClient {
+				clientFactory := func(conn net.Conn) SOCKClient {
 					return NewShadowSocksClient(conn)
 				}
-				router = NewSOCKSRouter(upstreamConf.Addr, shadowSocksClientFactory,
+				router = NewSOCKSRouter(upstreamConf.Addr, router, clientFactory,
 					CipherConnDecorator(upstreamConf.CryptoMethod, upstreamConf.Password))
-			}
-		default:
-			{
-				router = NewDirectRouter(conf.DNSCacheTimeout)
 			}
 		}
 		routers = append(routers, router)

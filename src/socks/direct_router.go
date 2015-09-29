@@ -7,8 +7,12 @@ type DirectRouter struct {
 }
 
 func NewDirectRouter(dnsCacheTime int) *DirectRouter {
+	var dnsCache *DNSCache
+	if dnsCacheTime != 0 {
+		dnsCache = NewDNSCache(dnsCacheTime)
+	}
 	return &DirectRouter{
-		dnsCache: NewDNSCache(dnsCacheTime),
+		dnsCache: dnsCache,
 	}
 }
 
@@ -27,11 +31,12 @@ func (d *DirectRouter) Do(address string) (net.Conn, error) {
 		}
 	case string:
 		{
-			if p, ok := d.dnsCache.Get(h); ok {
-				dest = p.String()
-				ipCached = true
-			} else {
-				dest = h
+			dest = h
+			if d.dnsCache != nil {
+				if p, ok := d.dnsCache.Get(h); ok {
+					dest = p.String()
+					ipCached = true
+				}
 			}
 		}
 	}
@@ -39,7 +44,7 @@ func (d *DirectRouter) Do(address string) (net.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	if !ipCached {
+	if d.dnsCache != nil && !ipCached {
 		d.dnsCache.Set(host.(string), destConn.RemoteAddr().(*net.TCPAddr).IP)
 	}
 	return destConn, nil
