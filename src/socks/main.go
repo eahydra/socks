@@ -7,8 +7,6 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-
-	"github.com/anacrolix/utp"
 )
 
 func main() {
@@ -24,7 +22,6 @@ func main() {
 		runHTTPProxyServer(conf, router)
 		runSOCKS4Server(conf, router)
 		runSOCKS5Server(conf, router)
-		runUTPSOCKS5Server(conf, router)
 	}
 	go http.ListenAndServe(confGroup.PprofAddr, nil)
 
@@ -56,16 +53,6 @@ func BuildUpstreamRouter(conf Config) *UpstreamRouter {
 				router = NewSOCKSRouter(upstreamConf.Addr, router, clientFactory,
 					CipherConnDecorator(upstreamConf.CryptoMethod, upstreamConf.Password))
 			}
-		case "utpsocks5":
-			{
-				clientFactory := func(conn net.Conn) SOCKClient {
-					return NewSOCKS5Client(conn)
-				}
-
-				router = NewDirectUTPRouter()
-				router = NewSOCKSRouter(upstreamConf.Addr, router, clientFactory,
-					CipherConnDecorator(upstreamConf.CryptoMethod, upstreamConf.Password))
-			}
 		}
 		routers = append(routers, router)
 	}
@@ -93,19 +80,6 @@ func runSOCKS4Server(conf Config, router Router) {
 func runSOCKS5Server(conf Config, router Router) {
 	if conf.SOCKS5Addr != "" {
 		listener, err := net.Listen("tcp", conf.SOCKS5Addr)
-		if err == nil {
-			listener = NewDecorateListener(listener, CipherConnDecorator(conf.LocalCryptoMethod, conf.LocalCryptoPassword))
-			socks5Svr := NewSocks5Server(router)
-			go socks5Svr.Run(listener)
-		}
-	}
-}
-
-func runUTPSOCKS5Server(conf Config, router Router) {
-	if conf.UTPSOCKS5Addr != "" {
-		var listener net.Listener
-		var err error
-		listener, err = utp.NewSocket("udp", conf.UTPSOCKS5Addr)
 		if err == nil {
 			listener = NewDecorateListener(listener, CipherConnDecorator(conf.LocalCryptoMethod, conf.LocalCryptoPassword))
 			socks5Svr := NewSocks5Server(router)
