@@ -1,4 +1,4 @@
-package main
+package socks
 
 import (
 	"encoding/binary"

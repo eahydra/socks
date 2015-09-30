@@ -1,4 +1,4 @@
-package main
+package socks
 
 import (
 	"fmt"
@@ -40,16 +40,6 @@ func director(request *http.Request) {
 		request.Header.Del("Connection")
 		request.Header.Add("Connection", v)
 	}
-}
-
-func (h *HTTPProxy) Run(addr string) error {
-	listen, err := net.Listen("tcp4", addr)
-	if err != nil {
-		return err
-	}
-	defer listen.Close()
-
-	return http.Serve(listen, h)
 }
 
 func (h *HTTPProxy) ServeHTTPTunnel(response http.ResponseWriter, request *http.Request) {
