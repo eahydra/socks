@@ -9,10 +9,14 @@ import (
 	"strconv"
 )
 
+// SOCKS5Client implements SOCKS5 Client Protocol.
+// You can use it as net.Conn to read/write.
 type SOCKS5Client struct {
 	net.Conn
 }
 
+// NewSOCKS5Client constructs one SOCKS5Client
+// Call this function with conn that accept from net.Listener or from net.Dial
 func NewSOCKS5Client(conn net.Conn) *SOCKS5Client {
 	return &SOCKS5Client{
 		Conn: conn,
@@ -27,9 +31,8 @@ func parseAddress(address string) (interface{}, string, error) {
 	ip := net.ParseIP(address)
 	if ip != nil {
 		return ip, port, nil
-	} else {
-		return host, port, nil
 	}
+	return host, port, nil
 }
 
 func buildSOCKS5Request(addr string) ([]byte, error) {
@@ -66,6 +69,7 @@ func buildSOCKS5Request(addr string) ([]byte, error) {
 	return req.Bytes(), nil
 }
 
+// RequestProxy send SOCKS5 Proxy request with address to remote peer.
 func (c *SOCKS5Client) RequestProxy(address string) error {
 	buff := []byte{0x05, 0x01, 0x00}
 	_, err := c.Write(buff)

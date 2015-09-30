@@ -7,16 +7,21 @@ import (
 	"strconv"
 )
 
+// ShadowSocksClient implements ShadowSocks Client Protocol and combine with net.Conn
+// so you can use ShadowSocksClient as net.Conn to read or write.
 type ShadowSocksClient struct {
 	net.Conn
 }
 
+// NewShadowSocksClient constructs one ShadowSocksClient.
+// Call this function with conn that accept from net.Listener or from net.Dial
 func NewShadowSocksClient(conn net.Conn) *ShadowSocksClient {
 	return &ShadowSocksClient{
 		Conn: conn,
 	}
 }
 
+// RequestProxy send ShadowSocks proxy request with addr to remote peer.
 func (s *ShadowSocksClient) RequestProxy(addr string) error {
 	req, err := buildShadowSocksRequest(addr)
 	if err != nil {

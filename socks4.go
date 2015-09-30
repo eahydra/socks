@@ -7,18 +7,21 @@ import (
 	"net"
 )
 
+// SOCKS4Server implements SOCKS4 Server Protocol. but not support udp protocol.
 type SOCKS4Server struct {
 	router Router
 }
 
+// NewSOCKS4Server constructs one SOCKS4Server
 func NewSOCKS4Server(router Router) *SOCKS4Server {
 	return &SOCKS4Server{
 		router: router,
 	}
 }
 
+// Run just listen at specify address and serve with incoming new client conn.
 func (s *SOCKS4Server) Run(addr string) error {
-	listener, err := net.Listen("tcp4", addr)
+	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		return err
 	}
@@ -33,24 +36,28 @@ func (s *SOCKS4Server) Run(addr string) error {
 				return err
 			}
 		}
-		clientConn := NewSOCKS4ClientConn(conn)
+		clientConn := NewSOCKS4Client(conn)
 		go clientConn.serve(s.router)
 	}
 	panic("unreached")
 }
 
-type SOCKS4ClientConn struct {
+// SOCKS4Client implement SOCKS4 Client Protocol. It combine with net.Conn,
+// so you can use SOCKS4Client as net.Conn to read or write.
+type SOCKS4Client struct {
 	net.Conn
 }
 
-func NewSOCKS4ClientConn(conn net.Conn) *SOCKS4ClientConn {
-	clientConn := &SOCKS4ClientConn{
+// NewSOCKS4Client constructs one SOCKS4Client.
+// Call this function with conn that accept from net.Listener or from net.Dial
+func NewSOCKS4Client(conn net.Conn) *SOCKS4Client {
+	clientConn := &SOCKS4Client{
 		Conn: conn,
 	}
 	return clientConn
 }
 
-func (c *SOCKS4ClientConn) serve(router Router) {
+func (c *SOCKS4Client) serve(router Router) {
 	defer c.Close()
 
 	cmd, destIP, destPort, err := c.handshake()
@@ -85,7 +92,7 @@ func (c *SOCKS4ClientConn) serve(router Router) {
 	io.Copy(c, dest)
 }
 
-func (c *SOCKS4ClientConn) handshake() (cmd byte, ip net.IP, port uint16, err error) {
+func (c *SOCKS4Client) handshake() (cmd byte, ip net.IP, port uint16, err error) {
 	// version(1) + command(1) + port(2) + ip(4) + null(1)
 	p := [1024]byte{}
 	buff := p[:]
