@@ -39,7 +39,6 @@ func (s *SOCKS4Server) Run(addr string) error {
 		clientConn := NewSOCKS4Client(conn)
 		go clientConn.serve(s.router)
 	}
-	panic("unreached")
 }
 
 // SOCKS4Client implement SOCKS4 Client Protocol. It combine with net.Conn,
