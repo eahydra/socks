@@ -52,7 +52,7 @@ func NewCipherConn(conn net.Conn, cryptMethod string, password []byte) (*CipherC
 	}, nil
 }
 
-func CipherConnDecorator(cryptoMethod, password string) ConnDecorator {
+func NewCipherConnDecorator(cryptoMethod, password string) ConnDecorator {
 	return func(conn net.Conn) (net.Conn, error) {
 		return NewCipherConn(conn, cryptoMethod, []byte(password))
 	}

@@ -8,25 +8,19 @@ import (
 )
 
 // SOCKS4Server implements SOCKS4 Server Protocol. but not support udp protocol.
-type SOCKS4Server struct {
-	router Router
+type Socks4Server struct {
+	forward Dialer
 }
 
 // NewSOCKS4Server constructs one SOCKS4Server
-func NewSOCKS4Server(router Router) *SOCKS4Server {
-	return &SOCKS4Server{
-		router: router,
-	}
+func NewSocks4Server(forward Dialer) (*Socks4Server, error) {
+	return &Socks4Server{
+		forward: forward,
+	}, nil
 }
 
 // Run just listen at specify address and serve with incoming new client conn.
-func (s *SOCKS4Server) Run(addr string) error {
-	listener, err := net.Listen("tcp", addr)
-	if err != nil {
-		return err
-	}
-	defer listener.Close()
-
+func (s *Socks4Server) Serve(listener net.Listener) error {
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
@@ -36,30 +30,29 @@ func (s *SOCKS4Server) Run(addr string) error {
 				return err
 			}
 		}
-		clientConn := NewSOCKS4Client(conn)
-		go clientConn.serve(s.router)
+
+		go serveSOCKS4Client(conn, s.forward)
 	}
 }
 
 // SOCKS4Client implement SOCKS4 Client Protocol. It combine with net.Conn,
 // so you can use SOCKS4Client as net.Conn to read or write.
-type SOCKS4Client struct {
-	net.Conn
+type Socks4Client struct {}
+
+func NewSocks4Client(network, address string, forward Dialer) (*Socks4Client, error) {
+	// TODO(joseph): Implement it.
+	return &Socks4Client{}, nil
 }
 
-// NewSOCKS4Client constructs one SOCKS4Client.
-// Call this function with conn that accept from net.Listener or from net.Dial
-func NewSOCKS4Client(conn net.Conn) *SOCKS4Client {
-	clientConn := &SOCKS4Client{
-		Conn: conn,
-	}
-	return clientConn
+func (s *Socks4Client) Dial(network, address string) (net.Conn, error) {
+	// TODO(joseph): Implement it.
+	return nil, nil
 }
 
-func (c *SOCKS4Client) serve(router Router) {
-	defer c.Close()
+func serveSOCKS4Client(conn net.Conn, forward Dialer) {
+	defer conn.Close()
 
-	cmd, destIP, destPort, err := c.handshake()
+	cmd, destIP, destPort, err := socks4Handshake(conn)
 	if err != nil {
 		return
 	}
@@ -67,36 +60,36 @@ func (c *SOCKS4Client) serve(router Router) {
 	reply := []byte{0x00, 0x5a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
 	if cmd != 0x01 {
 		reply[1] = 0x5b // reject.
-		c.Write(reply)
+		conn.Write(reply)
 		return
 	}
 
-	dest, err := router.Do(net.JoinHostPort(destIP.String(), fmt.Sprintf("%d", destPort)))
+	dest, err := forward.Dial("tcp", net.JoinHostPort(destIP.String(), fmt.Sprintf("%d", destPort)))
 	if err != nil {
 		reply[1] = 0x5c // connect failed
-		c.Write(reply)
+		conn.Write(reply)
 		return
 	}
 	defer dest.Close()
 
-	if _, err = c.Write(reply); err != nil {
+	if _, err = conn.Write(reply); err != nil {
 		return
 	}
 
 	go func() {
-		defer c.Close()
+		defer conn.Close()
 		defer dest.Close()
-		io.Copy(dest, c)
+		io.Copy(dest, conn)
 	}()
-	io.Copy(c, dest)
+	io.Copy(conn, dest)
 }
 
-func (c *SOCKS4Client) handshake() (cmd byte, ip net.IP, port uint16, err error) {
+func socks4Handshake(conn net.Conn) (cmd byte, ip net.IP, port uint16, err error) {
 	// version(1) + command(1) + port(2) + ip(4) + null(1)
 	p := [1024]byte{}
 	buff := p[:]
 	n := 0
-	if n, err = io.ReadAtLeast(c, buff, 8); err != nil {
+	if n, err = io.ReadAtLeast(conn, buff, 8); err != nil {
 		return
 	}
 	if buff[0] != 4 {
@@ -109,7 +102,7 @@ func (c *SOCKS4Client) handshake() (cmd byte, ip net.IP, port uint16, err error)
 
 	if buff[n-1] != 0 {
 		for {
-			if n, err = c.Read(buff); err != nil {
+			if n, err = conn.Read(buff); err != nil {
 				return
 			}
 			if buff[n-1] == 0 {

@@ -13,21 +13,21 @@ import (
 // route request to proxy server by Router.
 type HTTPProxy struct {
 	*httputil.ReverseProxy
-	router Router
+	forward Dialer
 }
 
 // NewHTTPProxy constructs one HTTPProxy
-func NewHTTPProxy(router Router) *HTTPProxy {
+func NewHTTPProxy(forward Dialer) *HTTPProxy {
 	return &HTTPProxy{
 		ReverseProxy: &httputil.ReverseProxy{
 			Director: director,
 			Transport: &http.Transport{
 				Dial: func(network, addr string) (net.Conn, error) {
-					return router.Do(addr)
+					return forward.Dial(network, addr)
 				},
 			},
 		},
-		router: router,
+		forward: forward,
 	}
 }
 
@@ -60,7 +60,7 @@ func (h *HTTPProxy) ServeHTTPTunnel(response http.ResponseWriter, request *http.
 	}
 	defer conn.Close()
 
-	dest, err := h.router.Do(request.Host)
+	dest, err := h.forward.Dial("tcp", request.Host)
 	if err != nil {
 		fmt.Fprintf(conn, "HTTP/1.0 500 NewRemoteSocks failed, err:%s\r\n\r\n", err)
 		return

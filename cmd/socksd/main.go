@@ -32,43 +32,43 @@ func main() {
 	<-sigChan
 }
 
-func BuildUpstreamRouter(conf Config) *UpstreamRouter {
-	var routers []socks.Router
+func BuildUpstreamRouter(conf Config) socks.Dialer {
+	var allForward []socks.Dialer
 	for _, upstreamConf := range conf.AllUpstreamConfig {
-		var router socks.Router
-		router = NewDirectRouter(conf.DNSCacheTimeout)
+		var forward socks.Dialer
+		forward = NewDecorateDirect(conf.DNSCacheTimeout)
+		cipherDecorator := NewCipherConnDecorator(upstreamConf.CryptoMethod, upstreamConf.Password)
+		forward = NewDecorateClient(forward, cipherDecorator)
+
+		var err error
 		switch strings.ToLower(upstreamConf.ServerType) {
 		case "socks5":
 			{
-				clientFactory := func(conn net.Conn) SOCKClient {
-					return socks.NewSOCKS5Client(conn)
-				}
-
-				router = NewSOCKSRouter(upstreamConf.Addr, router, clientFactory,
-					CipherConnDecorator(upstreamConf.CryptoMethod, upstreamConf.Password))
+				forward, err = socks.NewSocks5Client("tcp", upstreamConf.Addr, forward)
 			}
 		case "shadowsocks":
 			{
-				clientFactory := func(conn net.Conn) SOCKClient {
-					return socks.NewShadowSocksClient(conn)
-				}
-				router = NewSOCKSRouter(upstreamConf.Addr, router, clientFactory,
-					CipherConnDecorator(upstreamConf.CryptoMethod, upstreamConf.Password))
+				forward, err = socks.NewShadowSocksClient("tcp", upstreamConf.Addr, forward)
 			}
 		}
-		routers = append(routers, router)
+		if err != nil {
+			ErrLog.Println("build upstream failed, err:", err, upstreamConf.ServerType, upstreamConf.Addr)
+			continue
+		}
+		allForward = append(allForward, forward)
 	}
-	if len(routers) == 0 {
-		router := NewDirectRouter(conf.DNSCacheTimeout)
-		routers = append(routers, router)
+	if len(allForward) == 0 {
+		router := NewDecorateDirect(conf.DNSCacheTimeout)
+		allForward = append(allForward, router)
 	}
-	return NewUpstreamRouter(NewUpstreamRouterBalancer(routers))
+	return NewUpstreamDialer(allForward)
 }
 
-func runHTTPProxyServer(conf Config, router socks.Router) {
+func runHTTPProxyServer(conf Config, router socks.Dialer) {
 	if conf.HTTPProxyAddr != "" {
 		listener, err := net.Listen("tcp", conf.HTTPProxyAddr)
 		if err != nil {
+			ErrLog.Println("net.Listen at ", conf.HTTPProxyAddr, " failed, err:", err)
 			return
 		}
 		go func() {
@@ -79,20 +79,45 @@ func runHTTPProxyServer(conf Config, router socks.Router) {
 	}
 }
 
-func runSOCKS4Server(conf Config, router socks.Router) {
+func runSOCKS4Server(conf Config, forward socks.Dialer) {
 	if conf.SOCKS4Addr != "" {
-		socks4Svr := socks.NewSOCKS4Server(router)
-		go socks4Svr.Run(conf.SOCKS4Addr)
+		listener, err := net.Listen("tcp", conf.SOCKS4Addr)
+		if err != nil {
+			ErrLog.Println("net.Listen failed, err:", err, conf.SOCKS4Addr)
+			return
+		}
+		cipherDecorator := NewCipherConnDecorator(conf.LocalCryptoMethod, conf.LocalCryptoPassword)
+		listener = NewDecorateListener(listener, cipherDecorator)
+		socks4Svr, err := socks.NewSocks4Server(forward)
+		if err != nil {
+			listener.Close()
+			ErrLog.Println("socks.NewSocks4Server failed, err:", err)
+		}
+		go func() {
+			defer listener.Close()
+			socks4Svr.Serve(listener)
+		}()
 	}
 }
 
-func runSOCKS5Server(conf Config, router socks.Router) {
+func runSOCKS5Server(conf Config, forward socks.Dialer) {
 	if conf.SOCKS5Addr != "" {
 		listener, err := net.Listen("tcp", conf.SOCKS5Addr)
-		if err == nil {
-			listener = NewDecorateListener(listener, CipherConnDecorator(conf.LocalCryptoMethod, conf.LocalCryptoPassword))
-			socks5Svr := socks.NewSocks5Server(router)
-			go socks5Svr.Run(listener)
+		if err != nil {
+			ErrLog.Println("net.Listen failed, err:", err, conf.SOCKS5Addr)
+			return
 		}
+		cipherDecorator := NewCipherConnDecorator(conf.LocalCryptoMethod, conf.LocalCryptoPassword)
+		listener = NewDecorateListener(listener, cipherDecorator)
+		socks5Svr, err := socks.NewSocks5Server(forward)
+		if err != nil {
+			listener.Close()
+			ErrLog.Println("socks.NewSocks5Server failed, err:", err)
+			return
+		}
+		go func() {
+			defer listener.Close()
+			socks5Svr.Serve(listener)
+		}()
 	}
 }

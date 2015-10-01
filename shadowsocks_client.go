@@ -10,31 +10,33 @@ import (
 // ShadowSocksClient implements ShadowSocks Client Protocol and combine with net.Conn
 // so you can use ShadowSocksClient as net.Conn to read or write.
 type ShadowSocksClient struct {
-	net.Conn
+	network string
+	address string
+	forward Dialer
 }
 
 // NewShadowSocksClient constructs one ShadowSocksClient.
 // Call this function with conn that accept from net.Listener or from net.Dial
-func NewShadowSocksClient(conn net.Conn) *ShadowSocksClient {
+func NewShadowSocksClient(network, address string, forward Dialer) (*ShadowSocksClient, error) {
 	return &ShadowSocksClient{
-		Conn: conn,
-	}
+		network: network,
+		address: address,
+		forward: forward,
+	}, nil
 }
 
-// RequestProxy send ShadowSocks proxy request with addr to remote peer.
-func (s *ShadowSocksClient) RequestProxy(addr string) error {
-	req, err := buildShadowSocksRequest(addr)
+func (s *ShadowSocksClient) Dial(network, address string) (net.Conn, error) {
+	conn, err := s.forward.Dial(s.network, s.address)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	_, err = s.Write(req)
-	if err != nil {
-		return err
-	}
-	return nil
-}
+	connClose := &conn
+	defer func() {
+		if connClose != nil {
+			(*connClose).Close()
+		}
+	}()
 
-func buildShadowSocksRequest(address string) ([]byte, error) {
 	host, p, err := parseAddress(address)
 	if err != nil {
 		return nil, err
@@ -43,6 +45,7 @@ func buildShadowSocksRequest(address string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	req := bytes.NewBuffer(nil)
 	switch host.(type) {
 	case string:
@@ -63,5 +66,10 @@ func buildShadowSocksRequest(address string) ([]byte, error) {
 		req.Write(ip)
 		binary.Write(req, binary.BigEndian, uint16(port))
 	}
-	return req.Bytes(), nil
+	_, err = conn.Write(req.Bytes())
+	if err != nil {
+		return nil, err
+	}
+	connClose = nil
+	return conn, nil
 }

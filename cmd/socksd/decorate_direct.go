@@ -1,17 +1,21 @@
 package main
 
-import "net"
+import (
+	"net"
 
-type DirectRouter struct {
+	"github.com/eahydra/socks"
+)
+
+type DecorateDirect struct {
 	dnsCache *DNSCache
 }
 
-func NewDirectRouter(dnsCacheTime int) *DirectRouter {
+func NewDecorateDirect(dnsCacheTime int) *DecorateDirect {
 	var dnsCache *DNSCache
 	if dnsCacheTime != 0 {
 		dnsCache = NewDNSCache(dnsCacheTime)
 	}
-	return &DirectRouter{
+	return &DecorateDirect{
 		dnsCache: dnsCache,
 	}
 }
@@ -29,7 +33,7 @@ func parseAddress(address string) (interface{}, string, error) {
 	}
 }
 
-func (d *DirectRouter) Do(address string) (net.Conn, error) {
+func (d *DecorateDirect) Dial(network, address string) (net.Conn, error) {
 	host, port, err := parseAddress(address)
 	if err != nil {
 		return nil, err
@@ -53,10 +57,12 @@ func (d *DirectRouter) Do(address string) (net.Conn, error) {
 			}
 		}
 	}
-	destConn, err := net.Dial("tcp", net.JoinHostPort(dest, port))
+	address = net.JoinHostPort(dest, port)
+	destConn, err := socks.Direct.Dial(network, address)
 	if err != nil {
 		return nil, err
 	}
+
 	if d.dnsCache != nil && !ipCached {
 		d.dnsCache.Set(host.(string), destConn.RemoteAddr().(*net.TCPAddr).IP)
 	}
