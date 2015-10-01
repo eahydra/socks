@@ -32,14 +32,10 @@ Configuration parameters as follows:
 			        "addr": "54.64.248.242:9999"
 		        },
 		        {
-			        "cryptoMethod": "rc4",
+		        	"serverType":"shadowsocks"
+			        "cryptoMethod": "aes-256-cfb",
 			        "password": "abcd#1234",
 			        "addr": "54.64.214.156:9999"
-		        },
-		        {
-			        "cryptoMethod": "rc4",
-			        "password": "abcd#1234",
-			        "addr": "54.64.73.132:9999"
 		        }
             ]
         }
