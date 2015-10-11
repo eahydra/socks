@@ -75,7 +75,7 @@ func (s *Socks4Client) Dial(network, address string) (net.Conn, error) {
 	switch network {
 	case "tcp", "tcp4", "tcp6":
 	default:
-		return nil, errors.New("socks: Socks4Client.Dial invalid network:" + network)
+		return nil, errors.New("socks: no support for SOCKS4 proxy connections of type:" + network)
 	}
 
 	host, portStr, err := net.SplitHostPort(address)
@@ -111,7 +111,7 @@ func (s *Socks4Client) Dial(network, address string) (net.Conn, error) {
 
 	buff := make([]byte, 0, 8+len(s.userID)+1)
 	buff = append(buff, socks4Version, socks4Connect)
-	buff = append(buff, byte(port)>>8, byte(port))
+	buff = append(buff, byte(port>>8), byte(port))
 	buff = append(buff, ip4...)
 	if len(s.userID) != 0 {
 		buff = append(buff, []byte(s.userID)...)

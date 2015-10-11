@@ -44,7 +44,7 @@ func BuildUpstreamRouter(conf Config) socks.Dialer {
 		switch strings.ToLower(upstreamConf.ServerType) {
 		case "socks5":
 			{
-				forward, err = socks.NewSocks5Client("tcp", upstreamConf.Addr, forward)
+				forward, err = socks.NewSocks5Client("tcp", upstreamConf.Addr, "", "", forward)
 			}
 		case "shadowsocks":
 			{

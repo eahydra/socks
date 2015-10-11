@@ -1,8 +1,7 @@
 package socks
 
 import (
-	"bytes"
-	"encoding/binary"
+	"errors"
 	"net"
 	"strconv"
 )
@@ -26,50 +25,59 @@ func NewShadowSocksClient(network, address string, forward Dialer) (*ShadowSocks
 }
 
 func (s *ShadowSocksClient) Dial(network, address string) (net.Conn, error) {
+	switch network {
+	case "tcp", "tcp4", "tcp6":
+	default:
+		return nil, errors.New("socks: no support ShadowSocks proxy connections of type: " + network)
+	}
+
+	host, portStr, err := net.SplitHostPort(address)
+	if err != nil {
+		return nil, err
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return nil, errors.New("socks: failed to parse port number:" + portStr)
+	}
+	if port < 1 || port > 0xffff {
+		return nil, errors.New("socks5: port number out of range:" + portStr)
+	}
+
 	conn, err := s.forward.Dial(s.network, s.address)
 	if err != nil {
 		return nil, err
 	}
-	connClose := &conn
+	closeConn := &conn
 	defer func() {
-		if connClose != nil {
-			(*connClose).Close()
+		if closeConn != nil {
+			(*closeConn).Close()
 		}
 	}()
 
-	host, p, err := parseAddress(address)
-	if err != nil {
-		return nil, err
-	}
-	port, err := strconv.Atoi(p)
-	if err != nil {
-		return nil, err
-	}
-
-	req := bytes.NewBuffer(nil)
-	switch host.(type) {
-	case string:
-		domain := host.(string)
-		req.WriteByte(3)
-		req.WriteByte(byte(len(domain)))
-		req.WriteString(domain)
-		binary.Write(req, binary.BigEndian, uint16(port))
-
-	case net.IP:
-		ip := host.(net.IP)
-		if len(ip) == net.IPv4len {
-			req.WriteByte(1)
+	buff := make([]byte, 0, 266)
+	if ip := net.ParseIP(host); ip != nil {
+		if ip4 := ip.To4(); ip4 != nil {
+			buff = append(buff, 1)
+			ip = ip4
 		} else {
-			req.WriteByte(4)
+			buff = append(buff, 4)
 		}
-		req.WriteByte(byte(len(ip)))
-		req.Write(ip)
-		binary.Write(req, binary.BigEndian, uint16(port))
+		buff = append(buff, ip...)
+	} else {
+		if len(host) > 255 {
+			return nil, errors.New("socks: destination hostname too long: " + host)
+		}
+		buff = append(buff, 3)
+		buff = append(buff, uint8(len(host)))
+		buff = append(buff, host...)
 	}
-	_, err = conn.Write(req.Bytes())
+	buff = append(buff, uint8(port>>8), uint8(port))
+
+	_, err = conn.Write(buff)
 	if err != nil {
 		return nil, err
 	}
-	connClose = nil
+
+	closeConn = nil
 	return conn, nil
 }

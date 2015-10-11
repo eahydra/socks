@@ -1,16 +1,6 @@
 package socks
 
-import (
-	"errors"
-	"net"
-)
-
-var (
-	// ErrUnsupportedVersion means protocol version invalid.
-	ErrUnsupportedVersion = errors.New("socks unsupported version")
-	// ErrInvalidProtocol means protocol invalid.
-	ErrInvalidProtocol = errors.New("socks invalid protocol")
-)
+import "net"
 
 // SOCKS5Server implements SOCKS5 Server Protocol, but not support UDP and BIND command.
 type Socks5Server struct {
@@ -36,6 +26,6 @@ func (s *Socks5Server) Serve(listener net.Listener) error {
 			}
 		}
 
-		go serveSOCKS5Client(conn, s.forward)
+		go serveSocks5Client(conn, s.forward)
 	}
 }
