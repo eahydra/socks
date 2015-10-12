@@ -25,19 +25,20 @@ var socks4Errors = []string{
 	"request rejected because the client program and identd report different user-ids",
 }
 
-// SOCKS4Server implements SOCKS4 Server Protocol. but not support udp protocol.
+// Socks4Server implements Socks4 Proxy Protocol(http://www.openssh.com/txt/socks4.protocol).
+// Just support CONNECT command.
 type Socks4Server struct {
 	forward Dialer
 }
 
-// NewSOCKS4Server constructs one SOCKS4Server
+// NewSocks4Server returns a new Socks4Server that can serve from new clients.
 func NewSocks4Server(forward Dialer) (*Socks4Server, error) {
 	return &Socks4Server{
 		forward: forward,
 	}, nil
 }
 
-// Run just listen at specify address and serve with incoming new client conn.
+// Serve with net.Listener for clients.
 func (s *Socks4Server) Serve(listener net.Listener) error {
 	for {
 		conn, err := listener.Accept()
@@ -53,8 +54,7 @@ func (s *Socks4Server) Serve(listener net.Listener) error {
 	}
 }
 
-// SOCKS4Client implement SOCKS4 Client Protocol. It combine with net.Conn,
-// so you can use SOCKS4Client as net.Conn to read or write.
+// Socks4Client implements Socks4 Proxy Protocol(http://www.openssh.com/txt/socks4.protocol).
 type Socks4Client struct {
 	network string
 	address string
@@ -62,6 +62,8 @@ type Socks4Client struct {
 	forward Dialer
 }
 
+// NewSocks4Client return a new Socks4Client that implements Dialer interface.
+// network must be supported by forward, address is proxy server's address, userID can empty.
 func NewSocks4Client(network, address, userID string, forward Dialer) (*Socks4Client, error) {
 	return &Socks4Client{
 		network: network,
@@ -71,6 +73,7 @@ func NewSocks4Client(network, address, userID string, forward Dialer) (*Socks4Cl
 	}, nil
 }
 
+// Dial return a new net.Conn if succeeded. network must be tcp, tcp4 or tcp6, address only is IPV4.
 func (s *Socks4Client) Dial(network, address string) (net.Conn, error) {
 	switch network {
 	case "tcp", "tcp4", "tcp6":

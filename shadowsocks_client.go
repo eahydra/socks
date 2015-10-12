@@ -6,16 +6,14 @@ import (
 	"strconv"
 )
 
-// ShadowSocksClient implements ShadowSocks Client Protocol and combine with net.Conn
-// so you can use ShadowSocksClient as net.Conn to read or write.
+// ShadowSocksClient implements ShadowSocks Proxy Protocol
 type ShadowSocksClient struct {
 	network string
 	address string
 	forward Dialer
 }
 
-// NewShadowSocksClient constructs one ShadowSocksClient.
-// Call this function with conn that accept from net.Listener or from net.Dial
+// NewShadowSocksClient return a new ShadowSocksClient that implements Dialer interface.
 func NewShadowSocksClient(network, address string, forward Dialer) (*ShadowSocksClient, error) {
 	return &ShadowSocksClient{
 		network: network,
@@ -24,6 +22,7 @@ func NewShadowSocksClient(network, address string, forward Dialer) (*ShadowSocks
 	}, nil
 }
 
+// Dial return a new net.Conn that through proxy server establish with address
 func (s *ShadowSocksClient) Dial(network, address string) (net.Conn, error) {
 	switch network {
 	case "tcp", "tcp4", "tcp6":

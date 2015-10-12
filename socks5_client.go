@@ -47,8 +47,8 @@ var socks5Errors = []string{
 	"Address type not supported",
 }
 
-// SOCKS5Client implements SOCKS5 Client Protocol.
-// You can use it as net.Conn to read/write.
+// Socks5Client implements Socks5 Proxy Protocol(RFC 1928) Client Protocol.
+// Just support CONNECT command, and support USERNAME/PASSWORD authentication methods(RFC 1929)
 type Socks5Client struct {
 	network  string
 	address  string
@@ -57,8 +57,7 @@ type Socks5Client struct {
 	forward  Dialer
 }
 
-// NewSOCKS5Client constructs one SOCKS5Client
-// Call this function with conn that accept from net.Listener or from net.Dial
+// NewSocks5Client return a new Socks5Client that implements Dialer interface.
 func NewSocks5Client(network, address, user, password string, forward Dialer) (*Socks5Client, error) {
 	return &Socks5Client{
 		network:  network,
@@ -69,6 +68,8 @@ func NewSocks5Client(network, address, user, password string, forward Dialer) (*
 	}, nil
 }
 
+// Dial return a new net.Conn that through the CONNECT command to establish connections with proxy server.
+// adddress as RFC's requirements that can be IPV4, IPV6 and domain host, such as 8.8.8.8:999 or google.com:80
 func (s *Socks5Client) Dial(network, address string) (net.Conn, error) {
 	switch network {
 	case "tcp", "tcp4", "tcp6":

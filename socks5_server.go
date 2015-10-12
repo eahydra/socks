@@ -2,19 +2,19 @@ package socks
 
 import "net"
 
-// SOCKS5Server implements SOCKS5 Server Protocol, but not support UDP and BIND command.
+// Socks5Server implements Socks5 Proxy Protocol(RFC 1928), just support CONNECT command.
 type Socks5Server struct {
 	forward Dialer
 }
 
-// NewSocks5Server constructs one SOCKS5Server with router.
+// NewSocks5Server return a new Socks5Server
 func NewSocks5Server(forward Dialer) (*Socks5Server, error) {
 	return &Socks5Server{
 		forward: forward,
 	}, nil
 }
 
-// Run begin accept incoming client conn and serve it.
+// Serve with net.Listener for new incomming clients.
 func (s *Socks5Server) Serve(listener net.Listener) error {
 	for {
 		conn, err := listener.Accept()
