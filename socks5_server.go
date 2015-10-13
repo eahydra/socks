@@ -14,7 +14,7 @@ func NewSocks5Server(forward Dialer) (*Socks5Server, error) {
 	}, nil
 }
 
-// Serve with net.Listener for new incomming clients.
+// Serve with net.Listener for new incoming clients.
 func (s *Socks5Server) Serve(listener net.Listener) error {
 	for {
 		conn, err := listener.Accept()

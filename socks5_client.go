@@ -69,7 +69,7 @@ func NewSocks5Client(network, address, user, password string, forward Dialer) (*
 }
 
 // Dial return a new net.Conn that through the CONNECT command to establish connections with proxy server.
-// adddress as RFC's requirements that can be IPV4, IPV6 and domain host, such as 8.8.8.8:999 or google.com:80
+// address as RFC's requirements that can be IPV4, IPV6 and domain host, such as 8.8.8.8:999 or google.com:80
 func (s *Socks5Client) Dial(network, address string) (net.Conn, error) {
 	switch network {
 	case "tcp", "tcp4", "tcp6":
@@ -106,7 +106,7 @@ func (s *Socks5Client) Dial(network, address string) (net.Conn, error) {
 
 	buff = append(buff, socks5Version)
 
-	// set authentication mehtods
+	// set authentication methods
 	if len(s.user) > 0 && len(s.user) < 256 && len(s.password) < 256 {
 		buff = append(buff, 2, socks5AuthNone, socks5AuthPassword)
 	} else {
@@ -144,13 +144,13 @@ func (s *Socks5Client) Dial(network, address string) (net.Conn, error) {
 		if _, err := io.ReadFull(conn, buff[:2]); err != nil {
 			return nil, errors.New("socks: failed to read password authentication reply from SOCKS5 server at: " + s.address + ": " + err.Error())
 		}
-		// 0 indicats success
+		// 0 indicates success
 		if buff[1] != 0 {
 			return nil, errors.New("socks: SOCKS5 server at: " + s.address + " reject username/password")
 		}
 	}
 
-	// build connect reuqest
+	// build connect request
 	buff = buff[:0]
 	buff = append(buff, socks5Version, socks5Connect, 0)
 
