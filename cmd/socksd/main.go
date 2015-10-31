@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
@@ -12,7 +13,11 @@ import (
 )
 
 func main() {
-	confGroup, err := LoadConfigGroup("socks.config")
+	var configFile string
+	flag.StringVar(&configFile, "c", "socks.config", "config file path")
+	flag.Parse()
+
+	confGroup, err := LoadConfigGroup(configFile)
 	if err != nil {
 		ErrLog.Println("initGlobalConfig failed, err:", err)
 		return
