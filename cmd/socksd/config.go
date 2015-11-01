@@ -5,45 +5,43 @@ import (
 	"io/ioutil"
 )
 
-type UpstreamConfig struct {
-	ServerType   string `json:"serverType"`
-	CryptoMethod string `json:"cryptoMethod"`
-	Password     string `json:"password"`
-	Addr         string `json:"addr"`
+type Upstream struct {
+	Type     string `json:"type"`
+	Crypto   string `json:"crypto"`
+	Password string `json:"password"`
+	Address  string `json:"address"`
+}
+
+type PAC struct {
+	Address     string   `json:"address"`
+	Proxy       string   `json:"proxy"`
+	SOCKS5      string   `json:"socks5"`
+	LocalRules  string   `json:"local_rule_file"`
+	RemoteRules string   `json:"remote_rule_file"`
+	Upstream    Upstream `json:"upstream"`
+}
+
+type Proxy struct {
+	HTTP            string     `json:"http"`
+	SOCKS4          string     `json:"socks4"`
+	SOCKS5          string     `json:"socks5"`
+	Crypto          string     `json:"crypto"`
+	Password        string     `json:"password"`
+	DNSCacheTimeout int        `json:"dnsCacheTimeout"`
+	Upstreams       []Upstream `json:"upstreams"`
 }
 
 type Config struct {
-	HTTPProxyAddr       string           `json:"httpProxyAddr"`
-	SOCKS4Addr          string           `json:"socks4Addr"`
-	SOCKS5Addr          string           `json:"socks5Addr"`
-	UTPSOCKS5Addr       string           `json:"utpsocks5Addr"`
-	LocalCryptoMethod   string           `json:"localCryptoMethod"`
-	LocalCryptoPassword string           `json:"localPassword"`
-	DNSCacheTimeout     int              `json:"dnsCacheTimeout"`
-	AllUpstreamConfig   []UpstreamConfig `json:"upstream"`
+	PAC     PAC     `json:"pac"`
+	Proxies []Proxy `json:"proxies"`
 }
 
-type ConfigGroup struct {
-	PprofAddr string   `json:"pprof"`
-	AllConfig []Config `json:"configs"`
-}
-
-func (c *Config) String() string {
-	data, _ := json.Marshal(c)
-	return string(data)
-}
-
-func (c *ConfigGroup) String() string {
-	data, _ := json.Marshal(c)
-	return string(data)
-}
-
-func LoadConfigGroup(s string) (*ConfigGroup, error) {
+func LoadConfig(s string) (*Config, error) {
 	data, err := ioutil.ReadFile(s)
 	if err != nil {
 		return nil, err
 	}
-	cfgGroup := &ConfigGroup{}
+	cfgGroup := &Config{}
 	if err = json.Unmarshal(data, cfgGroup); err != nil {
 		return nil, err
 	}
