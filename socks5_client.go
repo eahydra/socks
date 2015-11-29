@@ -219,7 +219,7 @@ func (s *Socks5Client) Dial(network, address string) (net.Conn, error) {
 func serveSocks5Client(conn net.Conn, forward Dialer) {
 	defer conn.Close()
 
-	buff := make([]byte, 263)
+	buff := make([]byte, 262)
 	reply := []byte{0x05, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x22, 0x22}
 
 	if _, err := io.ReadFull(conn, buff[:2]); err != nil {
