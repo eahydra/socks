@@ -7,7 +7,7 @@ import (
 )
 
 type DecorateClient struct {
-	forward socks.Dialer
+	forward    socks.Dialer
 	decorators []ConnDecorator
 }
 
