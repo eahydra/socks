@@ -8,6 +8,8 @@ import (
 	"crypto/rand"
 	"crypto/rc4"
 	"io"
+
+	"github.com/codahale/chacha20"
 )
 
 func md5sum(d []byte) []byte {
@@ -57,6 +59,64 @@ func NewRC4Cipher(rwc io.ReadWriteCloser, password []byte) (*RC4Cipher, error) {
 			W: rwc,
 		},
 	}, nil
+}
+
+type Chacha20Cipher struct {
+	password []byte
+	rwc      io.ReadWriteCloser
+	*cipher.StreamReader
+	*cipher.StreamWriter
+}
+
+func NewChacha20Cipher(rwc io.ReadWriteCloser, password []byte) (*Chacha20Cipher, error) {
+	password = evpBytesToKey(password, chacha20.KeySize)
+	return &Chacha20Cipher{
+		rwc:      rwc,
+		password: password,
+	}, nil
+}
+
+func (c *Chacha20Cipher) Read(p []byte) (n int, err error) {
+	if c.StreamReader == nil {
+		iv := make([]byte, chacha20.NonceSize)
+		n, err = io.ReadFull(c.rwc, iv)
+		if err != nil {
+			return n, err
+		}
+		stream, err := chacha20.New(c.password, iv)
+		if err != nil {
+			return n, err
+		}
+
+		c.StreamReader = &cipher.StreamReader{
+			S: stream,
+			R: c.rwc,
+		}
+	}
+	return c.StreamReader.Read(p)
+}
+
+func (c *Chacha20Cipher) Write(p []byte) (n int, err error) {
+	if c.StreamWriter == nil {
+		iv := make([]byte, chacha20.NonceSize)
+		_, err = rand.Read(iv)
+		if err != nil {
+			return 0, err
+		}
+		stream, err := chacha20.New(c.password, iv)
+		if err != nil {
+			return n, err
+		}
+		c.StreamWriter = &cipher.StreamWriter{
+			S: stream,
+			W: c.rwc,
+		}
+		n, err := c.rwc.Write(iv)
+		if err != nil {
+			return n, err
+		}
+	}
+	return c.StreamWriter.Write(p)
 }
 
 type DESCFBCipher struct {

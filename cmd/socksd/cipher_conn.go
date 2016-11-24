@@ -41,6 +41,8 @@ func NewCipherConn(conn net.Conn, cryptMethod string, password []byte) (*CipherC
 		rwc, err = NewAESCFGCipher(conn, password, 24)
 	case "aes-256-cfb":
 		rwc, err = NewAESCFGCipher(conn, password, 32)
+	case "chacha20":
+		rwc, err = NewChacha20Cipher(conn, password)
 	}
 	if err != nil {
 		return nil, err
