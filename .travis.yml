@@ -2,4 +2,4 @@ language: go
 go:
   - 1.5.1
 install:
-  - go install ./cmd/socksd
+  - go get github.com/eahydra/socks/cmd/socksd
