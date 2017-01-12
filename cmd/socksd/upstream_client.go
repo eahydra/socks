@@ -2,15 +2,14 @@ package main
 
 import (
 	"net"
-	"sync"
+	"sync/atomic"
 
 	"github.com/eahydra/socks"
 )
 
 type UpstreamDialer struct {
+	nextRouter     uint64
 	forwardDialers []socks.Dialer
-	nextRouter     int
-	lock           sync.Mutex
 }
 
 func NewUpstreamDialer(forwardDialers []socks.Dialer) *UpstreamDialer {
@@ -20,17 +19,8 @@ func NewUpstreamDialer(forwardDialers []socks.Dialer) *UpstreamDialer {
 }
 
 func (u *UpstreamDialer) getNextDialer() socks.Dialer {
-	u.lock.Lock()
-	defer u.lock.Unlock()
-	index := u.nextRouter
-	u.nextRouter++
-	if u.nextRouter >= len(u.forwardDialers) {
-		u.nextRouter = 0
-	}
-	if index < len(u.forwardDialers) {
-		return u.forwardDialers[index]
-	}
-	panic("unreached")
+	old := atomic.LoadUint64(&u.nextRouter)
+	return u.forwardDialers[old%uint64(len(u.forwardDialers))]
 }
 
 func (u *UpstreamDialer) Dial(network, address string) (net.Conn, error) {
