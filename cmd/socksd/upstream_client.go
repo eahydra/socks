@@ -19,7 +19,7 @@ func NewUpstreamDialer(forwardDialers []socks.Dialer) *UpstreamDialer {
 }
 
 func (u *UpstreamDialer) getNextDialer() socks.Dialer {
-	old := atomic.LoadUint64(&u.nextRouter)
+	old := atomic.AddUint64(&u.nextRouter, 1)
 	return u.forwardDialers[old%uint64(len(u.forwardDialers))]
 }
 
