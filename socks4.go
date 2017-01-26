@@ -131,7 +131,7 @@ func (s *Socks4Client) Dial(network, address string) (net.Conn, error) {
 	if buff[1] != socks4Granted {
 		cd := int(buff[1]) - socks4Granted
 		failure := "unknown error"
-		if cd < len(socks4Errors) {
+		if cd < len(socks4Errors) && cd >= 0 {
 			failure = socks4Errors[cd]
 		}
 		return nil, errors.New("socks: SOCKS4 server at " + s.address + " failed to connect: " + failure)
